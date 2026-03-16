@@ -150,27 +150,27 @@ export const handleAgentExecution = async ({
   const title$ =
     conversation.operation === 'CREATE'
       ? generateTitle({
-          chatModel,
-          conversation,
-          nextInput,
-          anonymizationEnabled,
-          deanonymizeTitle,
-          abortSignal,
-          logger,
-        })
+        chatModel,
+        conversation,
+        nextInput,
+        anonymizationEnabled,
+        deanonymizeTitle,
+        abortSignal,
+        logger,
+      })
       : of(conversation.title);
 
   // Persist conversation (optional)
   const persistenceEvents$ = storeConversation
     ? buildPersistenceEvents({
-        agentId,
-        conversation,
-        conversationClient,
-        conversationId,
-        title$,
-        agentEvents$,
-        action,
-      })
+      agentId,
+      conversation,
+      conversationClient,
+      conversationId,
+      title$,
+      agentEvents$,
+      action,
+    })
     : EMPTY;
 
   // Merge all event streams
