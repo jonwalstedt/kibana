@@ -44,6 +44,33 @@ export async function persistenceLoop(
   params: WorkflowExecutionLoopParams,
   persistenceAbortSignal?: AbortSignal
 ) {
+  // Create the abort promise once outside the loop to avoid accumulating
+  // event listeners on each iteration.
+  const persistenceAbortPromise: Promise<void> = persistenceAbortSignal
+    ? new Promise<void>((_, reject) => {
+        if (persistenceAbortSignal.aborted) {
+          reject(new TimeoutAbortedError());
+          return;
+        }
+        persistenceAbortSignal.addEventListener('abort', () => reject(new TimeoutAbortedError()), {
+          once: true,
+        });
+      })
+    : new Promise<void>(() => {});
+
+  // Prevent unhandled-rejection crash: if the workflow completes before the while
+  // loop body ever runs (fast workflow), persistenceAbortPromise may never be passed
+  // to Promise.race and would have no rejection handler attached.
+  // persistenceAbortPromise can only reject with TimeoutAbortedError by construction
+  // (it is the sole rejection path above). That rejection is a controlled "stop" signal,
+  // not an error, so we acknowledge it here. Anything else is unexpected and logged.
+  persistenceAbortPromise.catch((err) => {
+    if (!(err instanceof TimeoutAbortedError)) {
+      params.workflowRuntime.setWorkflowError(err instanceof Error ? err : new Error(String(err)));
+    }
+  });
+
+
   while (params.workflowRuntime.getWorkflowExecutionStatus() === ExecutionStatus.RUNNING) {
     if (persistenceAbortSignal?.aborted) {
       return;
