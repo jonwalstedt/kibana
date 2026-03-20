@@ -68,7 +68,10 @@ export type {
   ChatCompleteAnonymizationMetadata,
   ChatCompleteAnonymizationTarget,
 } from './metadata';
-export { isChatCompleteAnonymizationTargetType } from './metadata';
+export {
+  isChatCompleteAnonymizationTargetType,
+  isChatCompleteAnonymizationMetadata,
+} from './metadata';
 export {
   isChatCompletionChunkEvent,
   isChatCompletionEvent,

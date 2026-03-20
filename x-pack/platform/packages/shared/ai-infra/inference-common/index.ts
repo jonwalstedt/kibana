@@ -62,6 +62,7 @@ export {
   type ChatCompleteAnonymizationMetadata,
   type ChatCompleteAnonymizationTarget,
   isChatCompleteAnonymizationTargetType,
+  isChatCompleteAnonymizationMetadata,
   type AnonymizationRule,
   type RegexAnonymizationRule,
   type NamedEntityRecognitionRule,

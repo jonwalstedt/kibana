@@ -87,3 +87,29 @@ export interface ChatCompleteAnonymizationMetadata {
    */
   attachmentAnonymizations?: Array<{ original: string; anonymized: string; entityClass: string }>;
 }
+
+const ANONYMIZATION_METADATA_KEYS: ReadonlyArray<keyof ChatCompleteAnonymizationMetadata> = [
+  'profileId',
+  'replacementsId',
+  'target',
+  'keepTokenized',
+  'additionalRules',
+  'effectiveFieldPolicy',
+  'attachmentAnonymizations',
+];
+
+/**
+ * Type guard for ChatCompleteAnonymizationMetadata.
+ *
+ * All fields are optional so a pure structural check would accept any object.
+ * This guard requires at least one known anonymization key to be present, which
+ * allows callers to pass an opaque Record<string, unknown> (e.g. from the
+ * beforeInference hook) and only treat it as anonymization metadata when it
+ * actually contains anonymization-relevant fields.
+ */
+export const isChatCompleteAnonymizationMetadata = (
+  value: unknown
+): value is ChatCompleteAnonymizationMetadata => {
+  if (typeof value !== 'object' || value === null) return false;
+  return ANONYMIZATION_METADATA_KEYS.some((key) => key in value);
+};
