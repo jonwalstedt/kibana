@@ -6,6 +6,7 @@
  */
 
 import type { ChatCompleteAPI, OutputAPI, InferenceConnector } from '@kbn/inference-common';
+import type { BaseStepDefinition } from '@kbn/workflows';
 
 /* eslint-disable @typescript-eslint/no-empty-interface*/
 
@@ -15,7 +16,10 @@ export interface InferenceSetupDependencies { }
 
 export interface InferenceStartDependencies { }
 
-export interface InferencePublicSetup { }
+export interface InferencePublicSetup {
+  /** Step definitions to be registered with workflowsExtensions via agentBuilder. */
+  stepDefinitions: BaseStepDefinition[];
+}
 
 export interface InferencePublicStart {
   chatComplete: ChatCompleteAPI;

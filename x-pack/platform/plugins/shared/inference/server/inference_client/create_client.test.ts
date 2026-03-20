@@ -48,7 +48,7 @@ describe('createClient', () => {
     it('calls createInferenceClient and return the client', () => {
       const expectedResult = Symbol('expected') as any;
       createInferenceClientMock.mockReturnValue(expectedResult);
-      const anonymizationRulesPromise = Promise.resolve([]);
+      const getAnonymizationRules = () => Promise.resolve([]);
       const endpointIdCache = new InferenceEndpointIdCache();
 
       const result = createClient({
@@ -56,7 +56,7 @@ describe('createClient', () => {
         actions,
         logger,
         esClient: mockEsClient,
-        anonymizationRulesPromise,
+        getAnonymizationRules,
         regexWorker,
         endpointIdCache,
       });
@@ -69,7 +69,7 @@ describe('createClient', () => {
           namespace: 'default',
           logger: logger.get('client'),
           esClient: mockEsClient,
-          anonymizationRulesPromise,
+          getAnonymizationRules,
           regexWorker,
           endpointIdCache,
         })
@@ -90,7 +90,7 @@ describe('createClient', () => {
         actions,
         logger,
         esClient: mockEsClient,
-        anonymizationRulesPromise: Promise.resolve([]),
+        getAnonymizationRules: () => Promise.resolve([]),
         regexWorker,
         endpointIdCache: new InferenceEndpointIdCache(),
       });
@@ -107,7 +107,7 @@ describe('createClient', () => {
     it('calls createInferenceClient and bindClient and forward the expected value', () => {
       const createInferenceResult = Symbol('createInferenceResult') as any;
       createInferenceClientMock.mockReturnValue(createInferenceResult);
-      const anonymizationRulesPromise = Promise.resolve([]);
+      const getAnonymizationRules = () => Promise.resolve([]);
 
       const bindClientResult = Symbol('bindClientResult') as any;
       bindClientMock.mockReturnValue(bindClientResult);
@@ -122,7 +122,7 @@ describe('createClient', () => {
           connectorId: '.my-connector',
         },
         esClient: mockEsClient,
-        anonymizationRulesPromise,
+        getAnonymizationRules,
         regexWorker,
         endpointIdCache,
       });
@@ -135,7 +135,7 @@ describe('createClient', () => {
           namespace: 'default',
           logger: logger.get('client'),
           esClient: mockEsClient,
-          anonymizationRulesPromise,
+          getAnonymizationRules,
           regexWorker,
           endpointIdCache,
         })
@@ -162,7 +162,7 @@ describe('createClient', () => {
           connectorId: '.foo',
         },
         esClient: mockEsClient,
-        anonymizationRulesPromise: Promise.resolve([]),
+        getAnonymizationRules: () => Promise.resolve([]),
         regexWorker,
         endpointIdCache: new InferenceEndpointIdCache(),
       });

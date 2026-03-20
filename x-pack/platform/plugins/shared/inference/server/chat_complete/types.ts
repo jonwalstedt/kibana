@@ -70,7 +70,7 @@ export interface CreateChatCompleteApiOptions {
   request: KibanaRequest;
   actions: ActionsPluginsStart;
   logger: Logger;
-  anonymizationRulesPromise: Promise<AnonymizationRule[]>;
+  getAnonymizationRules: () => Promise<AnonymizationRule[]>;
   regexWorker: RegexWorkerService;
   esClient: ElasticsearchClient;
 }

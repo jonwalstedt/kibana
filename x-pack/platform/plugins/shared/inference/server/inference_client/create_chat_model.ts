@@ -23,7 +23,7 @@ export interface CreateChatModelOptions {
   actions: ActionsPluginStart;
   logger: Logger;
   chatModelOptions: Omit<InferenceChatModelParams, 'connector' | 'chatComplete' | 'logger'>;
-  anonymizationRulesPromise: Promise<AnonymizationRule[]>;
+  getAnonymizationRules: () => Promise<AnonymizationRule[]>;
   regexWorker: RegexWorkerService;
   esClient: ElasticsearchClient;
   replacementsEsClient?: ElasticsearchClient;
@@ -38,7 +38,7 @@ export const createChatModel = async ({
   actions,
   logger,
   chatModelOptions,
-  anonymizationRulesPromise,
+  getAnonymizationRules,
   regexWorker,
   esClient,
   replacementsEsClient,
@@ -49,7 +49,7 @@ export const createChatModel = async ({
   const client = createClient({
     actions,
     request,
-    anonymizationRulesPromise,
+    getAnonymizationRules,
     regexWorker,
     esClient,
     ...(replacementsEsClient ? { replacementsEsClient } : {}),

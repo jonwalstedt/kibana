@@ -55,6 +55,8 @@ describe('createChatModel', () => {
   });
 
   it('calls createClient with the right parameters', async () => {
+    const getAnonymizationRules = () => Promise.resolve([]);
+
     await createChatModel({
       request,
       connectorId: '.my-connector',
@@ -63,22 +65,24 @@ describe('createChatModel', () => {
       chatModelOptions: {
         temperature: 0.3,
       },
-      anonymizationRulesPromise: Promise.resolve([]),
+      getAnonymizationRules,
       regexWorker,
       esClient: mockEsClient,
       endpointIdCache: new InferenceEndpointIdCache(),
     });
 
     expect(createClientMock).toHaveBeenCalledTimes(1);
-    expect(createClientMock).toHaveBeenCalledWith({
-      actions,
-      request,
-      logger,
-      esClient: mockEsClient,
-      anonymizationRulesPromise: Promise.resolve([]),
-      regexWorker,
-      endpointIdCache: expect.any(InferenceEndpointIdCache),
-    });
+    expect(createClientMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actions,
+        request,
+        logger,
+        esClient: mockEsClient,
+        getAnonymizationRules,
+        regexWorker,
+        endpointIdCache: expect.any(InferenceEndpointIdCache),
+      })
+    );
   });
 
   it('calls getConnectorById with the right parameters', async () => {
@@ -90,7 +94,7 @@ describe('createChatModel', () => {
       chatModelOptions: {
         temperature: 0.3,
       },
-      anonymizationRulesPromise: Promise.resolve([]),
+      getAnonymizationRules: () => Promise.resolve([]),
       regexWorker,
       esClient: mockEsClient,
       endpointIdCache: new InferenceEndpointIdCache(),
@@ -123,7 +127,7 @@ describe('createChatModel', () => {
       chatModelOptions: {
         temperature: 0.3,
       },
-      anonymizationRulesPromise: Promise.resolve([]),
+      getAnonymizationRules: () => Promise.resolve([]),
       regexWorker,
       esClient: mockEsClient,
       endpointIdCache: new InferenceEndpointIdCache(),

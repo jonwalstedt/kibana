@@ -71,6 +71,7 @@ describe('createPromptApi', () => {
   let promptApi: PromptAPI;
   let mockCallbackApi: jest.MockedFn<ChatCompleteApiWithCallback>;
   let regexWorker: ReturnType<typeof createRegexWorkerServiceMock>;
+  let getAnonymizationRules: () => Promise<never[]>;
 
   const mockInput = { query: 'world' };
 
@@ -79,6 +80,7 @@ describe('createPromptApi', () => {
     logger = loggerMock.create();
     actions = actionsMock.createStart();
     regexWorker = createRegexWorkerServiceMock();
+    getAnonymizationRules = () => Promise.resolve([]);
 
     mockCallbackApi = jest.fn();
     mockCreateChatCompleteCallbackApi.mockReturnValue(mockCallbackApi);
@@ -88,7 +90,7 @@ describe('createPromptApi', () => {
       namespace: 'default',
       actions,
       logger,
-      anonymizationRulesPromise: Promise.resolve([]),
+      getAnonymizationRules,
       regexWorker,
       esClient: mockEsClient,
       endpointIdCache: new InferenceEndpointIdCache(),
@@ -108,7 +110,7 @@ describe('createPromptApi', () => {
       namespace: 'default',
       actions,
       logger,
-      anonymizationRulesPromise: Promise.resolve([]),
+      getAnonymizationRules,
       regexWorker,
       esClient: mockEsClient,
       endpointIdCache: expect.any(InferenceEndpointIdCache),

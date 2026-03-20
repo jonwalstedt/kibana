@@ -210,6 +210,7 @@ export async function anonymizeRecords<T extends Record<string, string | undefin
   salt,
   effectivePolicy,
   knownReplacements,
+  initialAnonymizations,
 }: {
   input: T[];
   anonymizationRules: AnonymizationRule[];
@@ -218,6 +219,7 @@ export async function anonymizeRecords<T extends Record<string, string | undefin
   salt?: string;
   effectivePolicy?: EffectivePolicy;
   knownReplacements?: Array<{ anonymized: string; original: string }>;
+  initialAnonymizations?: Array<{ original: string; anonymized: string; entityClass: string }>;
 }): Promise<AnonymizationState>;
 
 export async function anonymizeRecords({
@@ -228,6 +230,7 @@ export async function anonymizeRecords({
   salt,
   effectivePolicy,
   knownReplacements,
+  initialAnonymizations,
 }: {
   input: Array<Record<string, string>>;
   anonymizationRules: AnonymizationRule[];
@@ -236,10 +239,14 @@ export async function anonymizeRecords({
   salt?: string;
   effectivePolicy?: EffectivePolicy;
   knownReplacements?: Array<{ anonymized: string; original: string }>;
+  initialAnonymizations?: Array<{ original: string; anonymized: string; entityClass: string }>;
 }): Promise<AnonymizationState> {
   let state: AnonymizationState = {
     records: input.concat(),
-    anonymizations: [],
+    anonymizations: (initialAnonymizations ?? []).map(({ original, anonymized, entityClass }) => ({
+      rule: { type: 'PreComputed' as const },
+      entity: { class_name: entityClass, value: original, mask: anonymized },
+    })),
   };
 
   state = applyFieldPolicy({

@@ -20,6 +20,10 @@ import type {
   InferenceStartDependencies,
 } from './types';
 import { createChatCompleteRestApi } from '../common/rest/chat_complete';
+import {
+  createAnonymizeContentStepDefinition,
+  createAnonymizeFieldsStepDefinition,
+} from './step_types';
 
 export class InferencePlugin
   implements
@@ -35,10 +39,15 @@ export class InferencePlugin
     this.logger = context.logger.get();
   }
   setup(
-    coreSetup: CoreSetup<InferenceStartDependencies, InferencePublicStart>,
-    pluginsSetup: InferenceSetupDependencies
+    _coreSetup: CoreSetup<InferenceStartDependencies, InferencePublicStart>,
+    _pluginsSetup: InferenceSetupDependencies
   ): InferencePublicSetup {
-    return {};
+    return {
+      stepDefinitions: [
+        createAnonymizeContentStepDefinition(),
+        createAnonymizeFieldsStepDefinition(),
+      ],
+    };
   }
 
   start(coreStart: CoreStart, pluginsStart: InferenceStartDependencies): InferencePublicStart {

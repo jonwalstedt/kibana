@@ -32,7 +32,7 @@ export function createInferenceClient({
   namespace,
   actions,
   logger,
-  anonymizationRulesPromise,
+  getAnonymizationRules,
   regexWorker,
   esClient,
   replacementsEsClient,
@@ -44,7 +44,7 @@ export function createInferenceClient({
   namespace: string;
   logger: Logger;
   actions: ActionsPluginStart;
-  anonymizationRulesPromise: Promise<AnonymizationRule[]>;
+  getAnonymizationRules: () => Promise<AnonymizationRule[]>;
   regexWorker: RegexWorkerService;
   esClient: ElasticsearchClient;
   replacementsEsClient?: ElasticsearchClient;
@@ -59,7 +59,7 @@ export function createInferenceClient({
     namespace,
     actions,
     logger,
-    anonymizationRulesPromise,
+    getAnonymizationRules,
     regexWorker,
     esClient,
     endpointIdCache,

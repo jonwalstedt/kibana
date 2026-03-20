@@ -53,7 +53,7 @@ interface CreateChatCompleteApiOptions {
   namespace: string;
   actions: ActionsPluginStart;
   logger: Logger;
-  anonymizationRulesPromise: Promise<AnonymizationRule[]>;
+  getAnonymizationRules: () => Promise<AnonymizationRule[]>;
   regexWorker: RegexWorkerService;
   esClient: ElasticsearchClient;
   anonymization?: InferenceAnonymizationOptions;
@@ -106,7 +106,7 @@ export function createChatCompleteCallbackApi({
   namespace,
   actions,
   logger,
-  anonymizationRulesPromise,
+  getAnonymizationRules,
   regexWorker,
   esClient,
   anonymization,
@@ -131,7 +131,7 @@ export function createChatCompleteCallbackApi({
         actions,
         esClient,
         logger,
-        anonymizationRulesPromise,
+        getAnonymizationRules,
         regexWorker,
         callback,
         abortSignal,
@@ -162,7 +162,7 @@ function createChatCompletePipeline({
   resolve,
   esClient,
   logger,
-  anonymizationRulesPromise,
+  getAnonymizationRules,
   regexWorker,
   callback,
   abortSignal,
@@ -173,7 +173,7 @@ function createChatCompletePipeline({
   resolve: () => Promise<ResolvedPipelineContext>;
   esClient: ElasticsearchClient;
   logger: Logger;
-  anonymizationRulesPromise: Promise<AnonymizationRule[]>;
+  getAnonymizationRules: () => Promise<AnonymizationRule[]>;
   regexWorker: RegexWorkerService;
   callback: ChatCompleteApiWithCallbackCallback;
   abortSignal?: AbortSignal;
@@ -183,7 +183,7 @@ function createChatCompletePipeline({
 }) {
   return forkJoin({
     context: from(resolve()),
-    anonymizationRules: from(anonymizationRulesPromise),
+    anonymizationRules: defer(getAnonymizationRules),
   }).pipe(
     switchMap(({ context, anonymizationRules }) => {
       const { callbackContext, getSpanModel, chatComplete } = context;
@@ -286,7 +286,7 @@ function resolveAndCreatePipeline({
   actions,
   esClient,
   logger,
-  anonymizationRulesPromise,
+  getAnonymizationRules,
   regexWorker,
   callback,
   abortSignal,
@@ -300,7 +300,7 @@ function resolveAndCreatePipeline({
   actions: ActionsPluginStart;
   esClient: ElasticsearchClient;
   logger: Logger;
-  anonymizationRulesPromise: Promise<AnonymizationRule[]>;
+  getAnonymizationRules: () => Promise<AnonymizationRule[]>;
   regexWorker: RegexWorkerService;
   callback: ChatCompleteApiWithCallbackCallback;
   abortSignal?: AbortSignal;
@@ -376,7 +376,7 @@ function resolveAndCreatePipeline({
         resolve,
         esClient,
         logger,
-        anonymizationRulesPromise,
+        getAnonymizationRules,
         regexWorker,
         callback,
         abortSignal,

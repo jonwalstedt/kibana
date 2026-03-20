@@ -27,7 +27,7 @@ interface CreateClientOptions {
   namespace?: string;
   actions: ActionsPluginStart;
   logger: Logger;
-  anonymizationRulesPromise: Promise<AnonymizationRule[]>;
+  getAnonymizationRules: () => Promise<AnonymizationRule[]>;
   regexWorker: RegexWorkerService;
   esClient: ElasticsearchClient;
   replacementsEsClient?: ElasticsearchClient;
@@ -50,7 +50,7 @@ export function createClient(
     request,
     namespace,
     logger,
-    anonymizationRulesPromise,
+    getAnonymizationRules,
     esClient,
     regexWorker,
     replacementsEsClient,
@@ -63,7 +63,7 @@ export function createClient(
     namespace: namespace ?? 'default',
     actions,
     logger: logger.get('client'),
-    anonymizationRulesPromise,
+    getAnonymizationRules,
     regexWorker,
     esClient,
     replacementsEsClient,

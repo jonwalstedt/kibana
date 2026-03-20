@@ -14,10 +14,12 @@ import type {
   ChatCompleteAnonymizationTarget,
   AnonymizationSettings,
 } from '@kbn/inference-common';
+// Note: AnonymizationRule is kept as it's still used in createAnonymizationRulesPromise
 import { aiAnonymizationSettings } from '@kbn/inference-common';
 import type { KibanaRequest } from '@kbn/core-http-server';
 import type { InferenceTaskType } from '@elastic/elasticsearch/lib/api/types';
 import { replaceTokensWithOriginals } from '@kbn/anonymization-common';
+import { getAnonymizeContentStepDefinition, getAnonymizeFieldsStepDefinition } from './step_types';
 import { createClient as createInferenceClient, createChatModel } from './inference_client';
 import { RegexWorkerService } from './chat_complete/anonymization/regex_worker_service';
 import { ReplacementsRepository } from './chat_complete/anonymization/replacements/replacements_repository';
@@ -108,6 +110,7 @@ export class InferencePlugin
   ): InferenceServerSetup {
     const anonymizationEnabled = pluginsSetup.anonymization?.isEnabled() ?? false;
     coreSetup.uiSettings.register(getUiSettings({ anonymizationEnabled }));
+
     const router = coreSetup.http.createRouter();
 
     registerRoutes({
@@ -116,7 +119,9 @@ export class InferencePlugin
       logger: this.logger,
     });
 
-    return {};
+    return {
+      stepDefinitions: [getAnonymizeContentStepDefinition(), getAnonymizeFieldsStepDefinition()],
+    };
   }
 
   start(core: CoreStart, pluginsStart: InferenceStartDependencies): InferenceServerStart {
@@ -158,12 +163,14 @@ export class InferencePlugin
       }
 
       const regexRules: AnonymizationRule[] = globalProfile.rules.regexRules.map((rule) => ({
+        id: rule.id,
         type: 'RegExp',
         enabled: rule.enabled,
         pattern: rule.pattern,
         entityClass: rule.entityClass,
       }));
       const nerRules: AnonymizationRule[] = globalProfile.rules.nerRules.map((rule) => ({
+        id: rule.id,
         type: 'NER',
         enabled: rule.enabled,
         modelId: rule.modelId,
@@ -184,7 +191,7 @@ export class InferencePlugin
       });
       return {
         namespace,
-        anonymizationRulesPromise: createAnonymizationRulesPromise(request),
+        getAnonymizationRules: () => createAnonymizationRulesPromise(request),
         regexWorker: (() => {
           if (!this.regexWorker) {
             this.logger.error(
@@ -271,7 +278,6 @@ export class InferencePlugin
           callbacks: options.callbacks,
           ...getAnonymizationOptions(options.request),
           actions: pluginsStart.actions,
-          anonymizationRulesPromise: createAnonymizationRulesPromise(options.request),
           regexWorker: this.regexWorker!,
           esClient: core.elasticsearch.client.asScoped(options.request).asCurrentUser,
           endpointIdCache: this.endpointIdCache,

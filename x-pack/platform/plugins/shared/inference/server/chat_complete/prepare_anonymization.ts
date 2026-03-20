@@ -15,6 +15,7 @@ import type {
 } from '@kbn/inference-common';
 import { createInferenceRequestError } from '@kbn/inference-common';
 import type { EffectivePolicy } from '@kbn/anonymization-common';
+import { MAX_TEXT_RULES_PER_PROFILE } from '@kbn/anonymization-common';
 import { anonymizeMessages } from './anonymization/anonymize_messages';
 import type { RegexWorkerService } from './anonymization/regex_worker_service';
 import { ReplacementsRepository } from './anonymization/replacements/replacements_repository';
@@ -58,16 +59,32 @@ export const prepareAnonymization = async ({
   messages,
 }: PrepareAnonymizationOptions) => {
   const salt = await saltPromise;
-  const effectivePolicy = await resolveEffectivePolicy?.(metadata?.anonymization?.target);
+  // Prefer pre-resolved by-value policy from the anonymize_fields workflow step; fall back to
+  // target-based lookup only when no pre-resolved policy is provided.
+  const effectivePolicy: EffectivePolicy | undefined =
+    (metadata?.anonymization?.effectiveFieldPolicy as EffectivePolicy | undefined) ??
+    (await resolveEffectivePolicy?.(metadata?.anonymization?.target));
+
+  // When additionalRules are present (pre-resolved by-value from caller), merge them with
+  // the space-scoped global default rules. Merge is by rule ID when present (non-destructive);
+  // global rules win on conflict. The combined set is capped at MAX_TEXT_RULES_PER_PROFILE to
+  // bound worst-case cost.
+  const additionalRules = metadata?.anonymization?.additionalRules;
+  const mergedAnonymizationRules = additionalRules?.length
+    ? mergeAnonymizationRules(anonymizationRules, additionalRules, logger)
+    : anonymizationRules;
+  const attachmentAnonymizations = metadata?.anonymization?.attachmentAnonymizations;
+
   if (!usePersistentReplacements) {
     const anonymization = await anonymizeMessages({
       system,
       messages,
-      anonymizationRules,
+      anonymizationRules: mergedAnonymizationRules,
       regexWorker,
       esClient,
       salt: salt ?? undefined,
       effectivePolicy,
+      attachmentAnonymizations,
     });
     return { anonymization, replacementsId: undefined, effectivePolicy };
   }
@@ -132,7 +149,7 @@ export const prepareAnonymization = async ({
   const anonymization = await anonymizeMessages({
     system,
     messages,
-    anonymizationRules,
+    anonymizationRules: mergedAnonymizationRules,
     regexWorker,
     esClient,
     salt: salt ?? undefined,
@@ -141,6 +158,7 @@ export const prepareAnonymization = async ({
       (r): r is { anonymized: string; original: string } =>
         typeof r.anonymized === 'string' && typeof r.original === 'string'
     ),
+    attachmentAnonymizations,
   });
 
   const replacements = anonymization.anonymizations.map(({ entity }) => ({
@@ -249,3 +267,40 @@ export const prepareAnonymization = async ({
 
   return { anonymization, replacementsId, effectivePolicy };
 };
+
+/**
+ * Merges global default anonymization rules with profile-specific rules.
+ *
+ * Semantics — additive, non-destructive ID merge (RFC-aligned):
+ * - Rules are merged by rule ID when present. If both global and profile rules share
+ *   the same ID, the global rule is kept and the profile rule is ignored.
+ * - Rules without IDs are treated as unique and are always included.
+ * - If combined count exceeds MAX_TEXT_RULES_PER_PROFILE, profile rules are trimmed
+ *   first to preserve the global baseline rules.
+ *
+ * @internal exported for unit testing only
+ */
+export function mergeAnonymizationRules(
+  globalRules: AnonymizationRule[],
+  profileRules: AnonymizationRule[],
+  logger: Logger
+): AnonymizationRule[] {
+  const globalRuleIds = new Set<string>(
+    globalRules.map((rule) => rule.id).filter((id): id is string => typeof id === 'string')
+  );
+
+  const filteredProfile = profileRules.filter((rule) => !(rule.id && globalRuleIds.has(rule.id)));
+
+  // Profile rules go at the end; trimming from the end removes profile overflow first.
+  const merged = [...globalRules, ...filteredProfile];
+
+  if (merged.length > MAX_TEXT_RULES_PER_PROFILE) {
+    const excess = merged.length - MAX_TEXT_RULES_PER_PROFILE;
+    logger.warn(
+      `[inference.anonymization.merge] combined rule count ${merged.length} exceeds cap ${MAX_TEXT_RULES_PER_PROFILE}; trimming ${excess} profile rule(s) to preserve global rules`
+    );
+    return merged.slice(0, MAX_TEXT_RULES_PER_PROFILE);
+  }
+
+  return merged;
+}

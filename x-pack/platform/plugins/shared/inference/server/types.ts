@@ -23,9 +23,8 @@ import type {
   AnonymizationPluginStart,
   AnonymizationPluginSetup,
 } from '@kbn/anonymization-plugin/server';
+import type { BaseStepDefinition } from '@kbn/workflows';
 import type { InferenceEndpoint } from './util/get_inference_endpoints';
-
-/* eslint-disable @typescript-eslint/no-empty-interface*/
 
 export interface InferenceSetupDependencies {
   actions: ActionsPluginSetup;
@@ -40,7 +39,10 @@ export interface InferenceStartDependencies {
 /**
  * Setup contract of the inference plugin.
  */
-export interface InferenceServerSetup {}
+export interface InferenceServerSetup {
+  /** Step definitions to be registered with workflowsExtensions via agentBuilder. */
+  stepDefinitions: BaseStepDefinition[];
+}
 
 /**
  * Options to create an inference client using the {@link InferenceServerStart.getClient} API.

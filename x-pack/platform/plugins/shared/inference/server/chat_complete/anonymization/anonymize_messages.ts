@@ -22,6 +22,7 @@ export async function anonymizeMessages({
   salt,
   effectivePolicy,
   knownReplacements,
+  attachmentAnonymizations,
 }: {
   system?: string | undefined;
   messages: Message[];
@@ -31,12 +32,19 @@ export async function anonymizeMessages({
   salt?: string;
   effectivePolicy?: EffectivePolicy;
   knownReplacements?: Array<{ anonymized: string; original: string }>;
+  attachmentAnonymizations?: Array<{ original: string; anonymized: string; entityClass: string }>;
 }): Promise<AnonymizationOutput> {
   const rules = anonymizationRules.filter((rule) => rule.enabled);
   const hasEffectivePolicy = Boolean(effectivePolicy && Object.keys(effectivePolicy).length > 0);
   const hasKnownReplacements = Boolean(knownReplacements?.length);
+  const hasAttachmentAnonymizations = Boolean(attachmentAnonymizations?.length);
 
-  if (!rules.length && !hasEffectivePolicy && !hasKnownReplacements) {
+  if (
+    !rules.length &&
+    !hasEffectivePolicy &&
+    !hasKnownReplacements &&
+    !hasAttachmentAnonymizations
+  ) {
     return {
       messages,
       anonymizations: [],
@@ -58,6 +66,7 @@ export async function anonymizeMessages({
     salt,
     effectivePolicy,
     knownReplacements,
+    initialAnonymizations: attachmentAnonymizations,
   });
 
   const anonymizedMessages = messages.map((original, index) => {

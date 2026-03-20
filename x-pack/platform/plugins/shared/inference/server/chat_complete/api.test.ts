@@ -81,7 +81,7 @@ describe('createChatCompleteApi', () => {
       namespace: 'default',
       actions,
       logger,
-      anonymizationRulesPromise: Promise.resolve([]),
+      getAnonymizationRules: () => Promise.resolve([]),
       regexWorker,
       esClient: mockEsClient,
       endpointIdCache,
