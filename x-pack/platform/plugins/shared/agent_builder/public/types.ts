@@ -22,7 +22,7 @@ import type {
   ToolServiceStartContract,
 } from '@kbn/agent-builder-browser';
 import type { LicensingPluginStart } from '@kbn/licensing-plugin/public';
-import type { InferencePublicStart } from '@kbn/inference-plugin/public';
+import type { InferencePublicSetup, InferencePublicStart } from '@kbn/inference-plugin/public';
 import type { UiActionsSetup, UiActionsStart } from '@kbn/ui-actions-plugin/public';
 import type { LicenseManagementUIPluginSetup } from '@kbn/license-management-plugin/public';
 import type { SpacesPluginStart } from '@kbn/spaces-plugin/public';
@@ -46,6 +46,7 @@ export interface OpenConversationSidebarReturn {
 export interface ConfigSchema {}
 
 export interface AgentBuilderSetupDependencies {
+  inference: InferencePublicSetup;
   lens: LensPublicSetup;
   dataViews: DataViewsPublicPluginSetup;
   licenseManagement?: LicenseManagementUIPluginSetup;

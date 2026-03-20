@@ -33,6 +33,12 @@ export interface ExecuteWorkflowParams {
   waitForCompletion?: boolean;
   completionTimeoutSec?: number;
   metadata?: Record<string, unknown>;
+  /**
+   * Optional abort signal. When fired, the polling loop exits early and returns a
+   * failure result. The underlying workflow execution may continue running in the
+   * workflow engine — cancellation of the engine execution is not currently supported.
+   */
+  abortSignal?: AbortSignal;
 }
 
 export const executeWorkflow = async ({
@@ -44,6 +50,7 @@ export const executeWorkflow = async ({
   waitForCompletion = true,
   completionTimeoutSec = DEFAULT_COMPLETION_TIMEOUT_SEC,
   metadata,
+  abortSignal,
 }: ExecuteWorkflowParams): Promise<WorkflowExecutionResult> => {
   const workflow = await workflowApi.getWorkflow(workflowId, spaceId);
 
@@ -105,6 +112,15 @@ export const executeWorkflow = async ({
 
       let execution: WorkflowExecutionState | null | undefined;
       do {
+        if (abortSignal?.aborted) {
+          const result: WorkflowExecutionResult = {
+            success: false,
+            error: `Workflow '${workflowId}' polling aborted by caller.`,
+          };
+          span?.setAttribute('output.value', safeJsonStringify(result) ?? 'unknown');
+          return result;
+        }
+
         try {
           execution = await getExecutionState({ executionId, spaceId, workflowApi });
 

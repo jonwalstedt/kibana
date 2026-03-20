@@ -43,6 +43,7 @@ import { useCurrentUser } from '../../../../hooks/agents/use_current_user';
 import { useUiPrivileges } from '../../../../hooks/use_ui_privileges';
 import { useExperimentalFeatures } from '../../../../hooks/use_experimental_features';
 import { WorkflowPicker } from '../../../tools/form/components/workflow/workflow_picker';
+import { useAgentBuilderServices } from '../../../../hooks/use_agent_builder_service';
 import { isPreExecutionWorkflowEnabled } from '../../../../utils/is_pre_execution_workflow_enabled';
 import { VISIBILITY_LABELS } from '../../../../utils/visibility_i18n';
 import type { AgentFormData } from '../agent_form';
@@ -73,6 +74,7 @@ export const AgentSettingsTab: React.FC<AgentSettingsTabProps> = ({
 
   const { currentUser } = useCurrentUser({ enabled: isExperimentalFeaturesEnabled });
   const { isAdmin } = useUiPrivileges();
+  const { accessChecker } = useAgentBuilderServices();
 
   const canChangeVisibility =
     isExperimentalFeaturesEnabled &&
@@ -87,6 +89,9 @@ export const AgentSettingsTab: React.FC<AgentSettingsTabProps> = ({
   const showAgentWorkflowsSection = useMemo(() => {
     return isPreExecutionWorkflowEnabled(uiSettings);
   }, [uiSettings]);
+  const showPreInferenceWorkflowsSection = useMemo(() => {
+    return showAgentWorkflowsSection && accessChecker.getAccess().hasAnonymizationEnabled;
+  }, [accessChecker, showAgentWorkflowsSection]);
 
   /* Enable shrinking; default min-width:auto blocks it and causes overflow */
   const formFlexColumnStyles = css`
@@ -763,6 +768,68 @@ export const AgentSettingsTab: React.FC<AgentSettingsTabProps> = ({
               >
                 <WorkflowPicker
                   name="configuration.workflow_ids"
+                  singleSelection={false}
+                  isDisabled={isFormDisabled}
+                />
+              </EuiFormRow>
+            </EuiFlexItem>
+          </EuiFlexGroup>
+        </>
+      )}
+
+      {showPreInferenceWorkflowsSection && (
+        <>
+          <EuiHorizontalRule />
+
+          <EuiFlexGroup
+            direction="row"
+            gutterSize="xl"
+            alignItems="flexStart"
+            aria-labelledby="pre-inference-workflow-section-title"
+          >
+            <EuiFlexItem grow={1}>
+              <EuiFlexGroup direction="column" gutterSize="s" alignItems="flexStart">
+                <EuiFlexGroup direction="row" gutterSize="s" alignItems="center">
+                  <EuiIcon type="lock" aria-hidden={true} />
+                  <EuiTitle size="xs">
+                    <h2 id="pre-inference-workflow-section-title">
+                      {i18n.translate(
+                        'xpack.agentBuilder.agents.form.settings.preInferenceWorkflowTitle',
+                        {
+                          defaultMessage: 'Pre-inference workflow',
+                        }
+                      )}
+                    </h2>
+                  </EuiTitle>
+                </EuiFlexGroup>
+                <EuiText size="s" color="subdued">
+                  {i18n.translate(
+                    'xpack.agentBuilder.agents.form.settings.preInferenceWorkflowDescription',
+                    {
+                      defaultMessage:
+                        'Runs before each inference call. Use this to configure anonymization or other pre-inference processing.',
+                    }
+                  )}
+                </EuiText>
+              </EuiFlexGroup>
+            </EuiFlexItem>
+            <EuiFlexItem grow={2} css={formFlexColumnStyles}>
+              <EuiFormRow
+                fullWidth
+                label={i18n.translate(
+                  'xpack.agentBuilder.agents.form.settings.preInferenceWorkflowLabel',
+                  {
+                    defaultMessage: 'Workflows',
+                  }
+                )}
+                labelAppend={
+                  <EuiText size="xs" color="subdued">
+                    {labels.common.optional}
+                  </EuiText>
+                }
+              >
+                <WorkflowPicker
+                  name="configuration.lifecycle_workflows.beforeInference"
                   singleSelection={false}
                   isDisabled={isFormDisabled}
                 />

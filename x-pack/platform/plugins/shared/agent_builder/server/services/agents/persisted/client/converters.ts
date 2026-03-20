@@ -16,6 +16,23 @@ export type Document = Pick<GetResponse<AgentProperties>, '_id' | '_source'>;
 
 const defaultAgentType = AgentType.chat;
 
+/**
+ * Synthesizes `lifecycle_workflows` at runtime from legacy fields when absent.
+ * Allows existing agents with `workflow_ids` to continue working without a data
+ * migration (zero-downtime migration strategy).
+ */
+function synthesizeLifecycleWorkflows(
+  config: AgentConfigurationProperties
+): Record<string, string[]> | undefined {
+  if (config.lifecycle_workflows) {
+    return config.lifecycle_workflows;
+  }
+  if (config.workflow_ids?.length) {
+    return { beforeAgent: config.workflow_ids };
+  }
+  return undefined;
+}
+
 export const fromEs = (document: Document): PersistedAgentDefinition => {
   if (!document._source) {
     throw new Error('No source found on get conversation response');
@@ -39,9 +56,9 @@ export const fromEs = (document: Document): PersistedAgentDefinition => {
     created_by:
       document._source.created_by_id || document._source.created_by_name
         ? {
-            id: document._source.created_by_id,
-            username: document._source.created_by_name ?? 'unknown',
-          }
+          id: document._source.created_by_id,
+          username: document._source.created_by_name ?? 'unknown',
+        }
         : undefined,
     configuration: {
       instructions: configuration.instructions,
@@ -52,6 +69,7 @@ export const fromEs = (document: Document): PersistedAgentDefinition => {
         (resolvedId === agentBuilderDefaultAgentId ? true : undefined),
       workflow_ids: configuration.workflow_ids,
       plugin_ids: configuration.plugin_ids,
+      lifecycle_workflows: synthesizeLifecycleWorkflows(configuration),
     },
   };
 };
@@ -86,6 +104,7 @@ export const createRequestToEs = ({
       enable_elastic_capabilities: profile.configuration.enable_elastic_capabilities,
       workflow_ids: profile.configuration.workflow_ids,
       plugin_ids: profile.configuration.plugin_ids,
+      lifecycle_workflows: profile.configuration.lifecycle_workflows,
     },
     created_at: creationDate.toISOString(),
     updated_at: creationDate.toISOString(),

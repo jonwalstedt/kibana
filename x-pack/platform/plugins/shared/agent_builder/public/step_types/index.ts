@@ -5,12 +5,18 @@
  * 2.0.
  */
 
-import type { WorkflowsExtensionsPublicPluginSetup } from '@kbn/workflows-extensions/public';
+import type {
+  WorkflowsExtensionsPublicPluginSetup,
+  PublicStepDefinition,
+} from '@kbn/workflows-extensions/public';
 import { runAgentStepDefinition } from './run_agent_step';
 
 export function registerWorkflowSteps(
-  workflowsExtensions: WorkflowsExtensionsPublicPluginSetup
+  workflowsExtensions: WorkflowsExtensionsPublicPluginSetup,
+  extraStepDefinitions: PublicStepDefinition[]
 ): void {
-  // Register steps
   workflowsExtensions.registerStepDefinition(runAgentStepDefinition);
+  for (const def of extraStepDefinitions) {
+    workflowsExtensions.registerStepDefinition(def);
+  }
 }

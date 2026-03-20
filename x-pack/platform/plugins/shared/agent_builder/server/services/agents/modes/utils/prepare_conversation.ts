@@ -12,11 +12,7 @@ import type {
   RoundInput,
 } from '@kbn/agent-builder-common';
 import { createBadRequestError, createInternalError } from '@kbn/agent-builder-common';
-import type {
-  Attachment,
-  AttachmentInput,
-  VersionedAttachment,
-} from '@kbn/agent-builder-common/attachments';
+import type { Attachment, AttachmentInput } from '@kbn/agent-builder-common/attachments';
 import {
   ATTACHMENT_REF_ACTOR,
   getLatestVersion,
@@ -29,10 +25,6 @@ import type {
 } from '@kbn/agent-builder-server/attachments';
 import type { AttachmentsService } from '@kbn/agent-builder-server/runner';
 import type { AgentHandlerContext } from '@kbn/agent-builder-server/agents';
-import {
-  type ChatCompleteAnonymizationTarget,
-  isChatCompleteAnonymizationTargetType,
-} from '@kbn/inference-common';
 import { getToolResultId } from '@kbn/agent-builder-server/tools';
 import {
   prepareAttachmentPresentation,
@@ -56,88 +48,23 @@ export interface ProcessedConversation {
   attachmentStateManager: AttachmentStateManager;
   /** Presentation configuration for versioned attachments (inline vs summary mode) */
   versionedAttachmentPresentation?: AttachmentPresentation;
-  anonymizationTarget?: ChatCompleteAnonymizationTarget;
 }
 
-const getAttachmentTarget = (
-  attachment: AttachmentInput
-): ChatCompleteAnonymizationTarget | undefined => {
-  const data = attachment.data as Record<string, unknown>;
-  const nested = data?.anonymizationTarget as Record<string, unknown> | undefined;
-  const targetType = nested?.targetType ?? data?.targetType;
-  const targetId = nested?.targetId ?? data?.targetId;
-  if (
-    isChatCompleteAnonymizationTargetType(targetType) &&
-    typeof targetId === 'string' &&
-    targetId.length > 0
-  ) {
-    return { targetType, targetId };
+const createFormatContext = (
+  agentContext: AgentHandlerContext,
+  {
+    inferenceConfig,
+    collect,
+  }: {
+    inferenceConfig?: Record<string, unknown>;
+    collect?: (item: unknown) => void;
   }
-  return undefined;
-};
-
-const deriveAnonymizationTarget = ({
-  attachments,
-  logger,
-}: {
-  attachments: AttachmentInput[];
-  logger: AgentHandlerContext['logger'];
-}): ChatCompleteAnonymizationTarget | undefined => {
-  const targets = attachments
-    .map((attachment, index) => ({
-      target: getAttachmentTarget(attachment),
-      index,
-      type: attachment.type,
-    }))
-    .filter(
-      (entry): entry is { target: ChatCompleteAnonymizationTarget; index: number; type: string } =>
-        entry.target !== undefined
-    );
-
-  if (targets.length === 0) {
-    return undefined;
-  }
-
-  const distinctTargets = new Map<
-    string,
-    { target: ChatCompleteAnonymizationTarget; index: number; type: string }
-  >();
-
-  for (const entry of targets) {
-    const key = `${entry.target.targetType}:${entry.target.targetId}`;
-    if (!distinctTargets.has(key)) {
-      distinctTargets.set(key, entry);
-    }
-  }
-
-  if (distinctTargets.size > 1) {
-    logger.warn(
-      `[agent_builder.anonymization.target_resolution] multiple_distinct_targets_detected=true fallback=global_only distinct_target_keys=${JSON.stringify(
-        Array.from(distinctTargets.keys())
-      )}`
-    );
-    return undefined;
-  }
-
-  return distinctTargets.values().next().value?.target;
-};
-
-const toAttachmentInput = (attachment: VersionedAttachment): AttachmentInput | undefined => {
-  const latest = getLatestVersion(attachment);
-  if (!latest) {
-    return undefined;
-  }
-  return {
-    id: attachment.id,
-    type: attachment.type,
-    data: latest.data as Record<string, unknown>,
-  };
-};
-
-const createFormatContext = (agentContext: AgentHandlerContext): AttachmentFormatContext => {
+): AttachmentFormatContext => {
   return {
     request: agentContext.request,
     spaceId: agentContext.spaceId,
+    inferenceConfig,
+    collect,
   };
 };
 
@@ -245,14 +172,18 @@ export const prepareConversation = async ({
   nextInput,
   context,
   action,
+  inferenceConfig,
+  collect,
 }: {
   previousRounds: ConversationRound[];
   nextInput: ConverseInput;
   context: AgentHandlerContext;
   action?: ConversationAction;
+  inferenceConfig?: Record<string, unknown>;
+  collect?: (item: unknown) => void;
 }): Promise<ProcessedConversation> => {
   const { attachments: attachmentsService, attachmentStateManager } = context;
-  const formatContext = createFormatContext(context);
+  const formatContext = createFormatContext(context, { inferenceConfig, collect });
 
   // Handle regenerate action: use last round's input and strip it from previous rounds
   const { effectiveRounds, effectiveNextInput } = prepareForAction({
@@ -268,27 +199,6 @@ export const prepareConversation = async ({
     (round) => round.input.attachments ?? []
   ) as AttachmentInput[];
   const nextInputAttachments = (effectiveNextInput.attachments ?? []) as AttachmentInput[];
-  const activeConversationAttachments = attachmentStateManager
-    .getActive()
-    .map((attachment) => toAttachmentInput(attachment))
-    .filter((attachment): attachment is AttachmentInput => attachment !== undefined);
-
-  // Current-turn targets are authoritative when provided. If absent, fall back
-  // to prior conversation context for follow-up continuity.
-  const currentTurnAnonymizationTarget = context.anonymizationEnabled
-    ? deriveAnonymizationTarget({
-        attachments: nextInputAttachments,
-        logger: context.logger,
-      })
-    : undefined;
-  const conversationContextAnonymizationTarget = context.anonymizationEnabled
-    ? deriveAnonymizationTarget({
-        attachments: [...activeConversationAttachments, ...previousAttachments],
-        logger: context.logger,
-      })
-    : undefined;
-  const anonymizationTarget =
-    currentTurnAnonymizationTarget ?? conversationContextAnonymizationTarget;
 
   await mergeInputAttachmentsIntoAttachmentState(attachmentStateManager, previousAttachments);
   attachmentStateManager.clearAccessTracking();
@@ -378,7 +288,6 @@ export const prepareConversation = async ({
     attachments: allAttachments,
     attachmentStateManager,
     versionedAttachmentPresentation,
-    anonymizationTarget,
   };
 };
 

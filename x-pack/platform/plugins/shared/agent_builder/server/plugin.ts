@@ -9,6 +9,7 @@ import type { CoreSetup, CoreStart, Plugin, PluginInitializerContext } from '@kb
 import type { Logger } from '@kbn/logging';
 import type { UsageCounter } from '@kbn/usage-collection-plugin/server';
 import type { HomeServerPluginSetup } from '@kbn/home-plugin/server';
+import type { ServerStepDefinition } from '@kbn/workflows-extensions/server';
 import type { AgentBuilderConfig } from './config';
 import { ServiceManager } from './services';
 import type {
@@ -29,6 +30,7 @@ import { registerTelemetryCollector } from './telemetry/telemetry_collector';
 import { AnalyticsService } from './telemetry';
 import { registerSampleData } from './register_sample_data';
 import { registerBeforeAgentWorkflowsHook } from './hooks/agent_workflows/register_before_agent_workflows_hook';
+import { registerBeforeInferenceWorkflowsHook } from './hooks/agent_workflows/register_before_inference_workflows_hook';
 import { registerSkillToolsLoaderHook } from './hooks/skills/register_skill_tools_loader_hook';
 import { createConnectorLifecycleHandler } from './services/connector_lifecycle/connector_lifecycle_handler';
 import { registerTaskDefinitions } from './services/execution';
@@ -143,6 +145,10 @@ export class AgentBuilderPlugin
       getRunAgentStepDefinition(this.serviceManager)
     );
 
+    for (const def of setupDeps.inference?.stepDefinitions ?? []) {
+      setupDeps.workflowsExtensions.registerStepDefinition(def as ServerStepDefinition);
+    }
+
     registerAgentBuilderHandlerContext({ coreSetup });
 
     const getInternalServices = () => {
@@ -165,6 +171,12 @@ export class AgentBuilderPlugin
     });
 
     registerBeforeAgentWorkflowsHook(serviceSetups, {
+      workflowsManagement: setupDeps.workflowsManagement,
+      logger: this.logger,
+      getInternalServices,
+    });
+
+    registerBeforeInferenceWorkflowsHook(serviceSetups, {
       workflowsManagement: setupDeps.workflowsManagement,
       logger: this.logger,
       getInternalServices,

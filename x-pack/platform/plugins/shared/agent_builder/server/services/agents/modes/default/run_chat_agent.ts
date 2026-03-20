@@ -15,7 +15,6 @@ import {
 } from '@kbn/agent-builder-genai-utils/langchain';
 import type { BrowserApiToolMetadata, ChatAgentEvent, RoundInput } from '@kbn/agent-builder-common';
 import { ConversationRoundStatus } from '@kbn/agent-builder-common';
-import type { ChatCompleteAnonymizationMetadata } from '@kbn/inference-common';
 import type { AgentEventEmitterFn, AgentHandlerContext } from '@kbn/agent-builder-server';
 import { HookLifecycle } from '@kbn/agent-builder-server';
 import type { ConversationInternalState } from '@kbn/agent-builder-common/chat';
@@ -123,12 +122,31 @@ export const runDefaultAgentMode: RunChatAgentFn = async (
   };
   toolManager.setEventEmitter(eventEmitter);
 
+  // beforeInference fires once per graph execution, before the inference call is made.
+  // It is content-unaware and lifecycle-generic. Handlers may return an inferenceConfig
+  // record; the framework merges results across handlers and makes the final config
+  // available to callers.
+  const beforeInferenceCtx = await context.hooks.run(HookLifecycle.beforeInference, {
+    request,
+    abortSignal,
+    agentId,
+    conversationId: conversation?.id,
+  });
+
+  const inferenceConfig = beforeInferenceCtx.inferenceConfig;
+
+  const collectedFormatItems: unknown[] = [];
+
   // Pass action so regenerate uses the last round's original input instead of request input
   const processedConversation = await prepareConversation({
     nextInput,
     previousRounds: conversation?.rounds ?? [],
     context,
     action,
+    inferenceConfig,
+    collect: (item) => {
+      collectedFormatItems.push(item);
+    },
   });
 
   const beforeHookResult = await context.hooks.run(HookLifecycle.beforeAgent, {
@@ -201,19 +219,17 @@ export const runDefaultAgentMode: RunChatAgentFn = async (
     experimentalFeatures,
   });
 
-  const anonymizationMetadata: ChatCompleteAnonymizationMetadata | undefined =
-    context.anonymizationEnabled
+  const inferenceMetadata: Record<string, unknown> | undefined =
+    inferenceConfig || collectedFormatItems.length
       ? {
-        // Keep the LLM response tokenized so Agent Builder UI can resolve originals
-        // via the replacements API with permission gating (RFC §7.5).
-        keepTokenized: true,
-        ...(conversation?.replacements_id
-          ? { replacementsId: conversation.replacements_id }
-          : {}),
-        ...(processedConversation.anonymizationTarget
-          ? { target: processedConversation.anonymizationTarget }
-          : {}),
-      }
+          // Keep the LLM response tokenized so Agent Builder UI can resolve originals
+          // via the replacements API with permission gating (RFC §7.5).
+          keepTokenized: true,
+          ...inferenceConfig,
+          ...(collectedFormatItems.length
+            ? { attachmentAnonymizations: collectedFormatItems }
+            : {}),
+        }
       : undefined;
 
   const agentGraph = createAgentGraph({
@@ -227,7 +243,7 @@ export const runDefaultAgentMode: RunChatAgentFn = async (
     outputSchema,
     processedConversation,
     promptFactory,
-    anonymizationMetadata,
+    inferenceMetadata,
   });
 
   logger.debug(`Running chat agent with graph: ${chatAgentGraphName}, runId: ${runId}`);
@@ -294,6 +310,7 @@ export const runDefaultAgentMode: RunChatAgentFn = async (
   });
 
   const round = await extractRound(events$);
+
   return {
     round,
   };

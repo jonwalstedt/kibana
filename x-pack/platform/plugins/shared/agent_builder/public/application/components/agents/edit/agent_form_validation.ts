@@ -128,5 +128,6 @@ export const agentFormSchema = z.object({
     enable_elastic_capabilities: z.boolean().optional(),
     workflow_ids: z.array(z.string()).optional(),
     plugin_ids: z.array(z.string()).optional(),
+    lifecycle_workflows: z.record(z.string(), z.array(z.string())).optional(),
   }),
 });

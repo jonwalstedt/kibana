@@ -18,6 +18,7 @@ import { BehaviorSubject } from 'rxjs';
 import React from 'react';
 import ReactDOM from 'react-dom';
 import { AGENT_BUILDER_EXPERIMENTAL_FEATURES_SETTING_ID } from '@kbn/management-settings-ids';
+import type { PublicStepDefinition } from '@kbn/workflows-extensions/public';
 import { registerLocators } from './locator/register_locators';
 import { registerAnalytics, registerApp, enableSkillsDeepLink } from './register';
 import { AgentBuilderNavControlInitiator } from './components/nav_control/lazy_agent_builder_nav_control';
@@ -108,7 +109,10 @@ export class AgentBuilderPlugin
     registerAnalytics({ analytics: core.analytics });
     registerLocators(deps.share);
 
-    registerWorkflowSteps(deps.workflowsExtensions);
+    registerWorkflowSteps(
+      deps.workflowsExtensions,
+      (deps.inference.stepDefinitions ?? []) as PublicStepDefinition[]
+    );
 
     core.chrome.sidebar.registerApp({
       appId: 'agentBuilder',

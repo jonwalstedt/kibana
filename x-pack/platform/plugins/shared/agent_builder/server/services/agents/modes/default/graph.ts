@@ -10,7 +10,7 @@ import { ToolNode } from '@langchain/langgraph/prebuilt';
 import type { BaseMessage } from '@langchain/core/messages';
 import type { Logger } from '@kbn/core/server';
 import type { InferenceChatModel } from '@kbn/inference-langchain';
-import type { ChatCompleteAnonymizationMetadata } from '@kbn/inference-common';
+import { isChatCompleteAnonymizationMetadata } from '@kbn/inference-common';
 import type { ResolvedAgentCapabilities } from '@kbn/agent-builder-common';
 import { AgentExecutionErrorCode as ErrCodes } from '@kbn/agent-builder-common/agents';
 import { createAgentExecutionError } from '@kbn/agent-builder-common/base/errors';
@@ -56,7 +56,7 @@ export const createAgentGraph = ({
   structuredOutput = false,
   outputSchema,
   promptFactory,
-  anonymizationMetadata,
+  inferenceMetadata,
 }: {
   chatModel: InferenceChatModel;
   toolManager: ToolManager;
@@ -68,8 +68,11 @@ export const createAgentGraph = ({
   outputSchema?: Record<string, unknown>;
   processedConversation: ProcessedConversation;
   promptFactory: PromptFactory;
-  anonymizationMetadata?: ChatCompleteAnonymizationMetadata;
+  inferenceMetadata?: Record<string, unknown>;
 }) => {
+  const anonymizationMetadata = isChatCompleteAnonymizationMetadata(inferenceMetadata)
+    ? inferenceMetadata
+    : undefined;
   const init = async () => {
     return {};
   };
@@ -228,7 +231,7 @@ export const createAgentGraph = ({
     promptFactory,
     events,
     outputSchema,
-    anonymizationMetadata,
+    inferenceMetadata,
   });
 
   const answerAgentEdge = async (state: StateType) => {

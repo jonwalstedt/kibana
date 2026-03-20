@@ -32,6 +32,7 @@ const storageSettings = {
         properties: {
           workflow_ids: types.keyword({}),
           plugin_ids: types.keyword({}),
+          lifecycle_workflows: types.object({ dynamic: false }),
         },
         dynamic: false,
       }),
@@ -67,6 +68,7 @@ export interface AgentConfigurationProperties {
   enable_elastic_capabilities?: boolean;
   workflow_ids?: string[];
   plugin_ids?: string[];
+  lifecycle_workflows?: Record<string, string[]>;
 }
 
 export type AgentProfileStorageSettings = typeof storageSettings;

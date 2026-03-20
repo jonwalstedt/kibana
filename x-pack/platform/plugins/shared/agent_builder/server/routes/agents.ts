@@ -251,6 +251,18 @@ export function registerAgentRoutes({
                     )
                   ),
                   plugin_ids: schema.maybe(PLUGINS_SCHEMA),
+                  lifecycle_workflows: schema.maybe(
+                    schema.recordOf(
+                      schema.string(),
+                      schema.arrayOf(schema.string(), { maxSize: 100 }),
+                      {
+                        meta: {
+                          description:
+                            'Map of lifecycle name → workflow IDs. Supported keys: beforeAgent, beforeInference. Supersedes workflow_ids.',
+                        },
+                      }
+                    )
+                  ),
                 },
                 {
                   meta: { description: 'Configuration settings for the agent.' },
@@ -411,6 +423,18 @@ export function registerAgentRoutes({
                       )
                     ),
                     plugin_ids: schema.maybe(PLUGINS_SCHEMA),
+                    lifecycle_workflows: schema.maybe(
+                      schema.recordOf(
+                        schema.string(),
+                        schema.arrayOf(schema.string(), { maxSize: 100 }),
+                        {
+                          meta: {
+                            description:
+                              'Updated map of lifecycle name → workflow IDs. Supported keys: beforeAgent, beforeInference.',
+                          },
+                        }
+                      )
+                    ),
                   },
                   {
                     meta: { description: 'Updated configuration settings for the agent.' },

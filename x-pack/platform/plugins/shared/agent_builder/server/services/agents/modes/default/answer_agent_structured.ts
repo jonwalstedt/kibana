@@ -7,8 +7,7 @@
 
 import { z } from '@kbn/zod/v4';
 import type { InferenceChatModel } from '@kbn/inference-langchain';
-import type { ChatCompleteAnonymizationMetadata } from '@kbn/inference-common';
-import { extractReplacementsId } from '@kbn/inference-common';
+import { isChatCompleteAnonymizationMetadata, extractReplacementsId } from '@kbn/inference-common';
 import type { AgentEventEmitter } from '@kbn/agent-builder-server';
 import { createReasoningEvent } from '@kbn/agent-builder-genai-utils/langchain';
 import { wrapJsonSchema } from '@kbn/agent-builder-genai-utils/tools/utils/json_schema';
@@ -46,14 +45,17 @@ export const createAnswerAgentStructured = ({
   promptFactory,
   events,
   outputSchema,
-  anonymizationMetadata,
+  inferenceMetadata,
 }: {
   chatModel: InferenceChatModel;
   events: AgentEventEmitter;
   promptFactory: PromptFactory;
   outputSchema?: Record<string, unknown>;
-  anonymizationMetadata?: ChatCompleteAnonymizationMetadata;
+  inferenceMetadata?: Record<string, unknown>;
 }) => {
+  const anonymizationMetadata = isChatCompleteAnonymizationMetadata(inferenceMetadata)
+    ? inferenceMetadata
+    : undefined;
   return async (state: StateType) => {
     if (state.answerActions.length === 0 && state.errorCount === 0) {
       events.emit(createReasoningEvent(getRandomAnsweringMessage(), { transient: true }));
