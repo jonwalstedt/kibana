@@ -23,7 +23,10 @@ describe('createAlertAttachmentType', () => {
 
   describe('validate', () => {
     it('returns valid when alert data is valid', async () => {
-      const input = { alert: 'test alert data', attachmentLabel: 'Security Alert' };
+      const input = {
+        rawData: { 'host.name': ['test-host'], 'user.name': ['test-user'] },
+        attachmentLabel: 'Security Alert',
+      };
 
       const result = await attachmentType.validate(input);
 
@@ -33,7 +36,15 @@ describe('createAlertAttachmentType', () => {
       }
     });
 
-    it('returns invalid when alert field is missing', async () => {
+    it('returns valid for legacy alert string format (backward compat)', async () => {
+      const input = { alert: 'test alert data', attachmentLabel: 'Security Alert' };
+
+      const result = await attachmentType.validate(input);
+
+      expect(result.valid).toBe(true);
+    });
+
+    it('returns invalid when both rawData and alert fields are missing', async () => {
       const input = {};
 
       const result = await attachmentType.validate(input);
@@ -44,8 +55,8 @@ describe('createAlertAttachmentType', () => {
       }
     });
 
-    it('returns invalid when alert field is not a string', async () => {
-      const input = { alert: 123 };
+    it('returns invalid when rawData field is not a record', async () => {
+      const input = { rawData: 'not-a-record', attachmentLabel: 'Security Alert' };
 
       const result = await attachmentType.validate(input);
 
@@ -57,11 +68,12 @@ describe('createAlertAttachmentType', () => {
   });
 
   describe('format', () => {
-    it('returns correct text representation', async () => {
+    it('returns JSON-serialized rawData as text representation', async () => {
+      const rawData = { 'host.name': ['frizzy-reach.info'], 'user.name': ['Carmela66'] };
       const attachment: Attachment<string, unknown> = {
         id: 'test-id',
         type: SecurityAgentBuilderAttachments.alert,
-        data: { alert: 'test alert content', attachmentLabel: 'Security Alert' },
+        data: { rawData, attachmentLabel: 'Security Alert' },
       };
 
       const formatted = await attachmentType.format(attachment, formatContext);
@@ -70,7 +82,100 @@ describe('createAlertAttachmentType', () => {
         : { type: 'text', value: attachment.data };
 
       expect(representation.type).toBe('text');
-      expect(representation.value).toBe('test alert content');
+      expect(representation.value).toBe(JSON.stringify(rawData));
+    });
+
+    it('applies field masking when effectiveFieldPolicy is provided via inferenceConfig', async () => {
+      const rawData = { 'host.name': ['frizzy-reach.info'], 'user.name': ['Carmela66'] };
+      const attachment: Attachment<string, unknown> = {
+        id: 'test-id',
+        type: SecurityAgentBuilderAttachments.alert,
+        data: { rawData, attachmentLabel: 'Security Alert' },
+      };
+      const collected: unknown[] = [];
+      const contextWithPolicy = {
+        ...formatContext,
+        inferenceConfig: {
+          effectiveFieldPolicy: {
+            'host.name': { action: 'anonymize', entityClass: 'HOST_NAME' },
+            'user.name': { action: 'anonymize', entityClass: 'USER_NAME' },
+          },
+        },
+        collect: (item: unknown) => collected.push(item),
+      };
+
+      const formatted = await attachmentType.format(attachment, contextWithPolicy);
+      const representation = formatted.getRepresentation
+        ? await formatted.getRepresentation()
+        : undefined;
+
+      expect(representation?.type).toBe('text');
+      const parsed = JSON.parse(representation?.value as string);
+
+      // Values are replaced with deterministic tokens
+      expect(parsed['host.name']).toHaveLength(1);
+      expect(parsed['host.name'][0]).toMatch(/^HOST_NAME_[0-9a-f]{16}$/);
+      expect(parsed['user.name']).toHaveLength(1);
+      expect(parsed['user.name'][0]).toMatch(/^USER_NAME_[0-9a-f]{16}$/);
+
+      // Original values do not appear in output
+      expect(parsed['host.name'][0]).not.toContain('frizzy-reach.info');
+      expect(parsed['user.name'][0]).not.toContain('Carmela66');
+
+      // collect is called for each masked value so the replacements store can deanonymize
+      expect(collected).toHaveLength(2);
+      expect(collected).toContainEqual(
+        expect.objectContaining({ original: 'frizzy-reach.info', entityClass: 'HOST_NAME' })
+      );
+      expect(collected).toContainEqual(
+        expect.objectContaining({ original: 'Carmela66', entityClass: 'USER_NAME' })
+      );
+    });
+
+    it('does not mask fields with action allow or deny', async () => {
+      const rawData = { 'host.name': ['allowed-host'], 'source.ip': ['1.2.3.4'] };
+      const attachment: Attachment<string, unknown> = {
+        id: 'test-id',
+        type: SecurityAgentBuilderAttachments.alert,
+        data: { rawData, attachmentLabel: 'Security Alert' },
+      };
+      const collected: unknown[] = [];
+      const contextWithPolicy = {
+        ...formatContext,
+        inferenceConfig: {
+          effectiveFieldPolicy: {
+            'host.name': { action: 'allow' },
+            'source.ip': { action: 'deny' },
+          },
+        },
+        collect: (item: unknown) => collected.push(item),
+      };
+
+      const formatted = await attachmentType.format(attachment, contextWithPolicy);
+      const representation = formatted.getRepresentation
+        ? await formatted.getRepresentation()
+        : undefined;
+
+      const parsed = JSON.parse(representation?.value as string);
+      expect(parsed['host.name']).toEqual(['allowed-host']);
+      expect(parsed['source.ip']).toEqual(['1.2.3.4']);
+      expect(collected).toHaveLength(0);
+    });
+
+    it('renders legacy alert string as-is (backward compat)', async () => {
+      const attachment: Attachment<string, unknown> = {
+        id: 'test-id',
+        type: SecurityAgentBuilderAttachments.alert,
+        data: { alert: 'legacy alert content', attachmentLabel: 'Security Alert' },
+      };
+
+      const formatted = await attachmentType.format(attachment, formatContext);
+      const representation = formatted.getRepresentation
+        ? await formatted.getRepresentation()
+        : undefined;
+
+      expect(representation?.type).toBe('text');
+      expect(representation?.value).toBe('legacy alert content');
     });
 
     it('throws error when attachment data is invalid', () => {

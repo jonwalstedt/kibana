@@ -6,6 +6,7 @@
  */
 
 import React, { memo, useMemo } from 'react';
+import { pick } from 'lodash';
 import { EuiFlexGroup, EuiFlexItem, EuiFlyoutFooter, EuiPanel } from '@elastic/eui';
 import { NewChatByTitle } from '@kbn/elastic-assistant';
 import { i18n } from '@kbn/i18n';
@@ -18,12 +19,8 @@ import { useAgentBuilderAvailability } from '../../agent_builder/hooks/use_agent
 import { NewAgentBuilderAttachment } from '../../agent_builder/components/new_agent_builder_attachment';
 import { useAgentBuilderAttachment } from '../../agent_builder/hooks/use_agent_builder_attachment';
 import { getRawData } from '../../assistant/helpers';
-import {
-  getAlertDataViewAnonymizationTarget,
-  stringifyEssentialAlertData,
-} from '../../agent_builder/helpers';
-import { useSpaceId } from '../../common/hooks/use_space_id';
 import { SecurityAgentBuilderAttachments } from '../../../common/constants';
+import { ESSENTIAL_ALERT_FIELDS } from '../../../common';
 import { ALERT_ATTACHMENT_PROMPT } from '../../agent_builder/components/prompts';
 
 export const ASK_AI_ASSISTANT = i18n.translate(
@@ -47,20 +44,18 @@ export const PanelFooter = memo(() => {
   });
 
   const { isAgentChatExperienceEnabled } = useAgentBuilderAvailability();
-  const spaceId = useSpaceId();
 
   const alertAttachment = useMemo(() => {
     const rawData = getRawData(dataFormattedForFieldBrowser ?? []);
     return {
       attachmentType: SecurityAgentBuilderAttachments.alert,
       attachmentData: {
-        alert: stringifyEssentialAlertData(rawData),
+        rawData: pick(rawData, ESSENTIAL_ALERT_FIELDS),
         attachmentLabel: rawData[ALERT_RULE_NAME]?.[0],
       },
-      anonymizationTarget: spaceId ? getAlertDataViewAnonymizationTarget(spaceId) : undefined,
       attachmentPrompt: ALERT_ATTACHMENT_PROMPT,
     };
-  }, [dataFormattedForFieldBrowser, spaceId]);
+  }, [dataFormattedForFieldBrowser]);
 
   const { openAgentBuilderFlyout } = useAgentBuilderAttachment(alertAttachment);
 

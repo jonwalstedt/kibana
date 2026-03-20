@@ -8,6 +8,7 @@
 import type { BuiltInAgentDefinition } from '@kbn/agent-builder-server/agents';
 import { platformCoreTools } from '@kbn/agent-builder-common';
 import type { Logger } from '@kbn/logging';
+import type { WorkflowsServerPluginSetup } from '@kbn/workflows-management-plugin/server';
 import { THREAT_HUNTING_AGENT_ID } from '../../../common/constants';
 import {
   SECURITY_ATTACK_DISCOVERY_SEARCH_TOOL_ID,
@@ -38,9 +39,48 @@ const SECURITY_TOOL_IDS = [
 
 export const THREAT_HUNTING_AGENT_TOOL_IDS = [...PLATFORM_TOOL_IDS, ...SECURITY_TOOL_IDS];
 
+/**
+ * Workflow tags used to wire alert-anonymization workflows into the Threat Hunting Agent.
+ * Tag a workflow with BOTH tags to have it run automatically in the beforeInference lifecycle.
+ */
+const ANONYMIZATION_WORKFLOW_TAG = 'anonymization';
+const ALERTS_WORKFLOW_TAG = 'alerts';
+
+/**
+ * Looks up enabled workflows that have both the anonymization and alerts tags in the given space.
+ * These workflows are automatically wired into the Threat Hunting Agent's beforeInference
+ * lifecycle so alert field values are masked before reaching the LLM.
+ *
+ * Note: WorkflowListItemDto.tags is not populated by the list service — tag filtering is done
+ * against definition.tags instead. The enabled filter is the only server-side filter applied.
+ */
+const getAlertAnonymizationWorkflowIds = async (
+  workflowsManagement: WorkflowsServerPluginSetup,
+  spaceId: string,
+  logger: Logger
+): Promise<string[]> => {
+  try {
+    const result = await workflowsManagement.management.getWorkflows(
+      { enabled: [true], size: 100, page: 1 },
+      spaceId
+    );
+    return result.results
+      .filter(
+        (w) =>
+          w.definition?.tags?.includes(ANONYMIZATION_WORKFLOW_TAG) &&
+          w.definition?.tags?.includes(ALERTS_WORKFLOW_TAG)
+      )
+      .map((w) => w.id);
+  } catch (err) {
+    logger.warn(`Failed to fetch anonymization workflows: ${err}`);
+    return [];
+  }
+};
+
 export const createThreatHuntingAgent = (
   core: SecuritySolutionPluginCoreSetupDependencies,
-  logger: Logger
+  logger: Logger,
+  workflowsManagement?: WorkflowsServerPluginSetup
 ): BuiltInAgentDefinition => {
   return {
     id: THREAT_HUNTING_AGENT_ID,
@@ -55,13 +95,22 @@ export const createThreatHuntingAgent = (
         return getAgentBuilderResourceAvailability({ core, request, logger });
       },
     },
-    configuration: {
-      instructions: `You are a security analyst and expert in resolving security incidents. Your role is to assist by answering questions about Elastic Security.`,
-      tools: [
-        {
-          tool_ids: THREAT_HUNTING_AGENT_TOOL_IDS,
-        },
-      ],
+    configuration: async ({ spaceId }) => {
+      const beforeInferenceWorkflowIds = workflowsManagement
+        ? await getAlertAnonymizationWorkflowIds(workflowsManagement, spaceId, logger)
+        : [];
+
+      return {
+        instructions: `You are a security analyst and expert in resolving security incidents. Your role is to assist by answering questions about Elastic Security.`,
+        tools: [
+          {
+            tool_ids: THREAT_HUNTING_AGENT_TOOL_IDS,
+          },
+        ],
+        ...(beforeInferenceWorkflowIds.length > 0
+          ? { lifecycle_workflows: { beforeInference: beforeInferenceWorkflowIds } }
+          : {}),
+      };
     },
   };
 };

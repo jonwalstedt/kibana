@@ -7,6 +7,7 @@
 
 import type { AgentBuilderPluginSetup } from '@kbn/agent-builder-plugin/server';
 import type { Logger } from '@kbn/logging';
+import type { WorkflowsServerPluginSetup } from '@kbn/workflows-management-plugin/server';
 import type { SecuritySolutionPluginCoreSetupDependencies } from '../../plugin_contract';
 
 import { createThreatHuntingAgent } from './threat_hunting_agent';
@@ -17,7 +18,8 @@ import { createThreatHuntingAgent } from './threat_hunting_agent';
 export const registerAgents = async (
   agentBuilder: AgentBuilderPluginSetup,
   core: SecuritySolutionPluginCoreSetupDependencies,
-  logger: Logger
+  logger: Logger,
+  workflowsManagement?: WorkflowsServerPluginSetup
 ) => {
-  agentBuilder.agents.register(createThreatHuntingAgent(core, logger));
+  agentBuilder.agents.register(createThreatHuntingAgent(core, logger, workflowsManagement));
 };

@@ -50,6 +50,7 @@ import type {
   AgentBuilderPluginSetup,
   AgentBuilderPluginStart,
 } from '@kbn/agent-builder-plugin/server';
+import type { WorkflowsServerPluginSetup } from '@kbn/workflows-management-plugin/server';
 import type { LlmTasksPluginStart } from '@kbn/llm-tasks-plugin/server';
 import type { ProductFeaturesService } from './lib/product_features_service/product_features_service';
 import type { ExperimentalFeatures } from '../common';
@@ -76,6 +77,7 @@ export interface SecuritySolutionPluginSetupDependencies {
   kql: KqlServerPluginSetup;
   share?: SharePluginSetup;
   agentBuilder?: AgentBuilderPluginSetup;
+  workflowsManagement?: WorkflowsServerPluginSetup;
 }
 
 export interface SecuritySolutionPluginStartDependencies {
@@ -114,7 +116,7 @@ export interface SecuritySolutionPluginSetup {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-empty-interface
-export interface SecuritySolutionPluginStart {}
+export interface SecuritySolutionPluginStart { }
 
 export type SecuritySolutionPluginCoreSetupDependencies = CoreSetup<
   SecuritySolutionPluginStartDependencies,

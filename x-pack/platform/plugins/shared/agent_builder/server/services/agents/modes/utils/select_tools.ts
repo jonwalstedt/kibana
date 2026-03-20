@@ -40,6 +40,7 @@ export const selectTools = async ({
   spaceId,
   runner,
   experimentalFeatures,
+  inferenceConfig,
 }: {
   conversation: ProcessedConversation;
   previousDynamicToolIds: string[];
@@ -53,8 +54,9 @@ export const selectTools = async ({
   spaceId: string;
   runner: ScopedRunner;
   experimentalFeatures: ExperimentalFeatures;
+  inferenceConfig?: Record<string, unknown>;
 }) => {
-  const formatContext: AttachmentFormatContext = { request, spaceId };
+  const formatContext: AttachmentFormatContext = { request, spaceId, inferenceConfig };
 
   // create tool selection for attachments types
   const attachmentTypes = conversation.attachmentTypes.map((type) => type.type);

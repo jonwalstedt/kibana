@@ -170,6 +170,7 @@ export const runDefaultAgentMode: RunChatAgentFn = async (
     experimentalFeatures,
     spaceId: context.spaceId,
     runner: context.runner,
+    inferenceConfig,
   });
 
   // First add static tools

@@ -261,7 +261,7 @@ export class Plugin implements ISecuritySolutionPlugin {
     registerAttachments(agentBuilder).catch((error) => {
       this.logger.error(`Error registering security attachments: ${error}`);
     });
-    registerAgents(agentBuilder, core, logger).catch((error) => {
+    registerAgents(agentBuilder, core, logger, plugins.workflowsManagement).catch((error) => {
       this.logger.error(`Error registering security agent: ${error}`);
     });
     registerSkills({
