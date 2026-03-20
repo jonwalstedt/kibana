@@ -110,6 +110,7 @@ export const createAgentHandlerContext = async <TParams = Record<string, unknown
     hooks: manager.deps.hooks,
     experimentalFeatures,
     anonymizationEnabled,
+    inferenceConfigHolder: manager.deps.inferenceConfigHolder,
   };
 };
 

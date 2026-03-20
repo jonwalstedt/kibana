@@ -96,14 +96,26 @@ export const executeWorkflow = async ({
       },
     },
     async (span) => {
-      const executionId = await workflowApi.runWorkflow(
-        workflowForExecution,
-        spaceId,
-        workflowParams,
-        request,
-        undefined,
-        metadata
-      );
+      let executionId: string;
+      try {
+        executionId = await workflowApi.runWorkflow(
+          workflowForExecution,
+          spaceId,
+          workflowParams,
+          request,
+          undefined,
+          metadata
+        );
+      } catch (err) {
+        // The workflow engine can throw synchronously from AbortSignal event listeners
+        // (e.g. TimeoutAbortedError from persistence_loop), which escapes a plain await.
+        // Catch here so the error surfaces as a { success: false } result rather than
+        // an unhandled rejection that crashes the Kibana process.
+        return {
+          success: false,
+          error: err instanceof Error ? err.message : String(err),
+        };
+      }
 
       span?.setAttribute('elastic.workflow.execution_id', executionId);
 

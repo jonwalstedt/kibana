@@ -11,10 +11,7 @@ import type {
   HookLifecycle,
 } from '@kbn/agent-builder-server';
 import { ExecutionStatus } from '@kbn/workflows';
-import {
-  createWorkflowExecutionError,
-  isConversationNotFoundError,
-} from '@kbn/agent-builder-common';
+import { createWorkflowExecutionError } from '@kbn/agent-builder-common';
 import { AGENT_BUILDER_EXPERIMENTAL_FEATURES_SETTING_ID } from '@kbn/management-settings-ids';
 import type { Logger } from '@kbn/logging';
 import type { WorkflowsServerPluginSetup } from '@kbn/workflows-management-plugin/server';
@@ -73,7 +70,7 @@ export async function runBeforeInferenceWorkflows({
   logger,
   completionTimeoutSec = 30,
 }: RunBeforeInferenceWorkflowsParams): Promise<void | HookHandlerResult<HookLifecycle.beforeInference>> {
-  const { spaces, uiSettings, savedObjects, agents, conversations } = getInternalServices();
+  const { spaces, uiSettings, savedObjects, agents } = getInternalServices();
   const soClient = savedObjects.getScopedClient(context.request);
   const uiSettingsClient = uiSettings.asScopedToClient(soClient);
 
@@ -89,23 +86,10 @@ export async function runBeforeInferenceWorkflows({
 
   const spaceId = getCurrentSpaceId({ request: context.request, spaces });
 
-  // Fetch replacementsId from the conversation for session continuity across turns.
-  // Only fetched here (not seeded by the caller) so agent builder stays agnostic.
-  // The conversation may not exist yet on the first turn (new conversation), so treat
-  // a not-found error as "no replacementsId" — workflows will receive undefined and handle it.
-  let replacementsId: string | undefined;
-  if (context.conversationId) {
-    try {
-      const conversationClient = await conversations.getScopedClient({ request: context.request });
-      const conversation = await conversationClient.get(context.conversationId);
-      replacementsId = conversation.replacements_id;
-    } catch (err) {
-      if (!isConversationNotFoundError(err)) {
-        throw err;
-      }
-      // New conversation — no replacementsId yet; workflow will produce one.
-    }
-  }
+  // replacementsId is threaded in via hook context from the already-loaded Conversation,
+  // so no extra DB fetch is needed here. On the first turn it will be undefined and the
+  // workflow step will generate a new session ID.
+  const { replacementsId } = context;
 
   let inferenceConfig: Record<string, unknown> = {
     ...(replacementsId ? { replacementsId } : {}),

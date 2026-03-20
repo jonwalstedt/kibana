@@ -307,6 +307,99 @@ describe('runDefaultAgentMode', () => {
     );
   });
 
+  it('sets inferenceConfigHolder.current after beforeInference resolves', async () => {
+    const context = createAgentHandlerContextMock();
+    const inferenceConfigHolder: { current?: Record<string, unknown> } = { current: undefined };
+    (context as any).inferenceConfigHolder = inferenceConfigHolder;
+
+    jest.spyOn(context.modelProvider, 'getDefaultModel').mockResolvedValue({
+      connector: { name: 'test-connector' },
+      chatModel: {} as any,
+    } as any);
+
+    context.toolManager.getToolIdMapping.mockReturnValue(new Map());
+    context.toolManager.getDynamicToolIds.mockReturnValue([]);
+    getPendingRoundMock.mockReturnValue(undefined);
+
+    selectToolsMock.mockResolvedValue({ staticTools: [], dynamicTools: [] } as any);
+
+    prepareConversationMock.mockResolvedValue({
+      previousRounds: [],
+      nextInput: { message: 'hello', attachments: [] },
+      attachments: [],
+      attachmentTypes: [],
+      attachmentStateManager: context.attachmentStateManager,
+    } as any);
+
+    extractRoundMock.mockResolvedValue(createRound({ id: 'round-1' }));
+    createAgentGraphMock.mockReturnValue({ streamEvents: jest.fn(() => []) } as any);
+
+    const inferenceConfig = { replacementsId: 'repl-abc', toolDeanonymization: { mode: 'all' } };
+
+    (context.hooks.run as jest.Mock).mockImplementation(
+      async (lifecycle: HookLifecycle, ctx: any) => {
+        if (lifecycle === HookLifecycle.beforeInference) {
+          return { ...ctx, inferenceConfig };
+        }
+        return ctx;
+      }
+    );
+
+    await runDefaultAgentMode(
+      {
+        nextInput: { message: 'hello' },
+        agentConfiguration: { tools: [] } as any,
+      },
+      context
+    );
+
+    expect(inferenceConfigHolder.current).toEqual(inferenceConfig);
+  });
+
+  it('passes conversation.replacements_id as replacementsId in beforeInference hook context', async () => {
+    const context = createAgentHandlerContextMock();
+
+    jest.spyOn(context.modelProvider, 'getDefaultModel').mockResolvedValue({
+      connector: { name: 'test-connector' },
+      chatModel: {} as any,
+    } as any);
+
+    context.toolManager.getToolIdMapping.mockReturnValue(new Map());
+    context.toolManager.getDynamicToolIds.mockReturnValue([]);
+    getPendingRoundMock.mockReturnValue(undefined);
+    selectToolsMock.mockResolvedValue({ staticTools: [], dynamicTools: [] } as any);
+    prepareConversationMock.mockResolvedValue({
+      previousRounds: [],
+      nextInput: { message: 'hello', attachments: [] },
+      attachments: [],
+      attachmentTypes: [],
+      attachmentStateManager: context.attachmentStateManager,
+    } as any);
+    extractRoundMock.mockResolvedValue(createRound({ id: 'round-1' }));
+    createAgentGraphMock.mockReturnValue({ streamEvents: jest.fn(() => []) } as any);
+
+    let capturedReplacementsId: unknown;
+    (context.hooks.run as jest.Mock).mockImplementation(
+      async (lifecycle: HookLifecycle, ctx: any) => {
+        if (lifecycle === HookLifecycle.beforeInference) {
+          capturedReplacementsId = ctx.replacementsId;
+        }
+        return ctx;
+      }
+    );
+
+    await runDefaultAgentMode(
+      {
+        nextInput: { message: 'hello' },
+        conversation: { replacements_id: 'repl-turn-2', rounds: [] } as any,
+        agentConfiguration: { tools: [] } as any,
+      } as any,
+      context
+    );
+
+    expect(capturedReplacementsId).toBe('repl-turn-2');
+  });
+
   it('omits keepTokenized from inferenceMetadata when hook does not return it', async () => {
     const context = createAgentHandlerContextMock();
 

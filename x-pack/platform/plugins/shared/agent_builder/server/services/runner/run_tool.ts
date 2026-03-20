@@ -100,6 +100,7 @@ export const runInternalTool = async <TParams = Record<string, unknown>>({
     source,
     request: manager.deps.request,
     abortSignal: manager.deps.abortSignal,
+    inferenceConfig: manager.deps.inferenceConfigHolder?.current,
   };
   const beforeToolHooksResult = await hooks.run(HookLifecycle.beforeToolCall, hookContext);
   toolParams = beforeToolHooksResult.toolParams;
@@ -199,6 +200,7 @@ export const runInternalTool = async <TParams = Record<string, unknown>>({
     toolReturn: runToolReturn,
     abortSignal: manager.deps.abortSignal,
     toolHandlerContext,
+    inferenceConfig: manager.deps.inferenceConfigHolder?.current,
   };
   const afterToolHooksResult = await hooks.run(HookLifecycle.afterToolCall, postContext);
   runToolReturn = afterToolHooksResult.toolReturn;

@@ -10,6 +10,8 @@ import type { Logger } from '@kbn/logging';
 import type { UsageCounter } from '@kbn/usage-collection-plugin/server';
 import type { HomeServerPluginSetup } from '@kbn/home-plugin/server';
 import type { ServerStepDefinition } from '@kbn/workflows-extensions/server';
+import type { InferenceServerStart } from '@kbn/inference-plugin/server';
+import type { SpacesPluginStart } from '@kbn/spaces-plugin/server';
 import type { AgentBuilderConfig } from './config';
 import { ServiceManager } from './services';
 import type {
@@ -33,6 +35,7 @@ import { registerBeforeAgentWorkflowsHook } from './hooks/agent_workflows/regist
 import { registerBeforeInferenceWorkflowsHook } from './hooks/agent_workflows/register_before_inference_workflows_hook';
 import { registerSkillToolsLoaderHook } from './hooks/skills/register_skill_tools_loader_hook';
 import { createConnectorLifecycleHandler } from './services/connector_lifecycle/connector_lifecycle_handler';
+import { registerToolDeanonymizationHooks } from './hooks/tool_deanonymization/register_tool_deanonymization_hooks';
 import { registerTaskDefinitions } from './services/execution';
 import { createModelProviderFactory } from './services/runner/model_provider';
 import { registerSmlCrawlerTaskDefinition, scheduleSmlCrawlerTasks } from './services/sml';
@@ -41,13 +44,12 @@ import { createAdminPrivilegeSwitcher } from './capabilities/admin_privilege_swi
 
 export class AgentBuilderPlugin
   implements
-    Plugin<
-      AgentBuilderPluginSetup,
-      AgentBuilderPluginStart,
-      AgentBuilderSetupDependencies,
-      AgentBuilderStartDependencies
-    >
-{
+  Plugin<
+    AgentBuilderPluginSetup,
+    AgentBuilderPluginStart,
+    AgentBuilderSetupDependencies,
+    AgentBuilderStartDependencies
+  > {
   private logger: Logger;
   private config: AgentBuilderConfig;
   private serviceManager: ServiceManager;
@@ -55,6 +57,8 @@ export class AgentBuilderPlugin
   private trackingService?: TrackingService;
   private analyticsService?: AnalyticsService;
   private home: HomeServerPluginSetup | null = null;
+  private inferenceStart?: InferenceServerStart;
+  private spacesStart?: SpacesPluginStart;
   constructor(context: PluginInitializerContext<AgentBuilderConfig>) {
     this.logger = context.logger.get();
     this.config = context.config.get();
@@ -213,6 +217,17 @@ export class AgentBuilderPlugin
       onPostDelete: connectorLifecycleHandler.onPostDelete,
     });
 
+    registerToolDeanonymizationHooks(serviceSetups, {
+      logger: this.logger,
+      getInferenceStart: () => {
+        if (!this.inferenceStart) {
+          throw new Error('getInferenceStart called before plugin start');
+        }
+        return this.inferenceStart;
+      },
+      getSpaces: () => this.spacesStart,
+    });
+
     return {
       tools: {
         register: serviceSetups.tools.register.bind(serviceSetups.tools),
@@ -239,8 +254,12 @@ export class AgentBuilderPlugin
     coreStart: CoreStart,
     { inference, spaces, actions, taskManager }: AgentBuilderStartDependencies
   ): AgentBuilderPluginStart {
+    this.inferenceStart = inference;
+    this.spacesStart = spaces;
+
     const { elasticsearch, security, uiSettings, savedObjects, dataStreams, featureFlags } =
       coreStart;
+
     const startServices = this.serviceManager.startServices({
       logger: this.logger.get('services'),
       security,
@@ -322,5 +341,5 @@ export class AgentBuilderPlugin
     };
   }
 
-  stop() {}
+  stop() { }
 }

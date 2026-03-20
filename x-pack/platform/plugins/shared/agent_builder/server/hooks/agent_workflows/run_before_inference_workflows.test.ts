@@ -5,7 +5,7 @@
  * 2.0.
  */
 
-import { AgentBuilderErrorCode, createConversationNotFoundError } from '@kbn/agent-builder-common';
+import { AgentBuilderErrorCode } from '@kbn/agent-builder-common';
 import { httpServerMock } from '@kbn/core-http-server-mocks';
 import { loggingSystemMock } from '@kbn/core-logging-server-mocks';
 import { savedObjectsServiceMock } from '@kbn/core-saved-objects-server-mocks';
@@ -46,8 +46,7 @@ describe('runBeforeInferenceWorkflows', () => {
   const createDeps = (
     agentConfig: Record<string, unknown> = {
       lifecycle_workflows: { beforeInference: ['wf-anon-1'] },
-    },
-    conversationReplacementsId?: string
+    }
   ) => {
     const savedObjects = savedObjectsServiceMock.createStartContract();
     const uiSettings = uiSettingsServiceMock.createStartContract();
@@ -64,13 +63,6 @@ describe('runBeforeInferenceWorkflows', () => {
       }),
     };
 
-    const conversationClient = {
-      get: jest.fn().mockResolvedValue({ replacements_id: conversationReplacementsId }),
-    };
-    const conversations = {
-      getScopedClient: jest.fn().mockResolvedValue(conversationClient),
-    };
-
     return {
       workflowApi: {} as WorkflowApi,
       getInternalServices: jest.fn(() => ({
@@ -80,11 +72,9 @@ describe('runBeforeInferenceWorkflows', () => {
         spaces: {},
         uiSettings,
         savedObjects,
-        conversations,
       })) as unknown as GetInternalServices,
       registry,
       uiSettingsClient,
-      conversationClient,
     };
   };
 
@@ -355,14 +345,13 @@ describe('runBeforeInferenceWorkflows', () => {
     expect(result).toBeUndefined();
   });
 
-  // ── replacementsId from conversation ─────────────────────────────────────
+  // ── replacementsId threading ──────────────────────────────────────────────
 
-  it('seeds replacementsId from conversation and passes it to workflow params', async () => {
-    const context = createContext({ conversationId: 'conv-1' });
-    const { workflowApi, getInternalServices } = createDeps(
-      { lifecycle_workflows: { beforeInference: ['wf-anon-1'] } },
-      'repl-from-conv'
-    );
+  it('passes replacementsId from context to workflow params', async () => {
+    const context = createContext({ conversationId: 'conv-1', replacementsId: 'repl-from-conv' });
+    const { workflowApi, getInternalServices } = createDeps({
+      lifecycle_workflows: { beforeInference: ['wf-anon-1'] },
+    });
     executeWorkflowMock.mockResolvedValue(makeCompletedExecution({ additionalRules: [] }));
 
     await runBeforeInferenceWorkflows({ context, workflowApi, getInternalServices, logger });
@@ -374,12 +363,11 @@ describe('runBeforeInferenceWorkflows', () => {
     );
   });
 
-  it('includes replacementsId from conversation in inferenceConfig', async () => {
-    const context = createContext({ conversationId: 'conv-1' });
-    const { workflowApi, getInternalServices } = createDeps(
-      { lifecycle_workflows: { beforeInference: ['wf-anon-1'] } },
-      'repl-from-conv'
-    );
+  it('includes replacementsId from context in inferenceConfig', async () => {
+    const context = createContext({ conversationId: 'conv-1', replacementsId: 'repl-from-conv' });
+    const { workflowApi, getInternalServices } = createDeps({
+      lifecycle_workflows: { beforeInference: ['wf-anon-1'] },
+    });
     executeWorkflowMock.mockResolvedValue(makeCompletedExecution({ additionalRules: [] }));
 
     const result = await runBeforeInferenceWorkflows({
@@ -394,14 +382,11 @@ describe('runBeforeInferenceWorkflows', () => {
     });
   });
 
-  it('continues without replacementsId when conversation does not exist yet (new conversation)', async () => {
+  it('runs workflow without replacementsId on first turn (new conversation)', async () => {
     const context = createContext({ conversationId: 'new-conv-id' });
-    const { workflowApi, getInternalServices, conversationClient } = createDeps({
+    const { workflowApi, getInternalServices } = createDeps({
       lifecycle_workflows: { beforeInference: ['wf-anon-1'] },
     });
-    conversationClient.get.mockRejectedValue(
-      createConversationNotFoundError({ conversationId: 'new-conv-id' })
-    );
     executeWorkflowMock.mockResolvedValue(makeCompletedExecution({ effectiveFieldPolicy: {} }));
 
     const result = await runBeforeInferenceWorkflows({
@@ -411,41 +396,83 @@ describe('runBeforeInferenceWorkflows', () => {
       logger,
     });
 
-    // Workflow should still run with no replacements_id
     expect(executeWorkflowMock).toHaveBeenCalledWith(
       expect.objectContaining({
         workflowParams: { replacements_id: undefined },
       })
     );
-    // And inferenceConfig should come back from the workflow
     expect(result).toEqual({ inferenceConfig: { effectiveFieldPolicy: {} } });
   });
 
-  it('rethrows non-NotFound errors when fetching conversation', async () => {
-    const context = createContext({ conversationId: 'conv-1' });
-    const { workflowApi, getInternalServices, conversationClient } = createDeps({
-      lifecycle_workflows: { beforeInference: ['wf-anon-1'] },
+  it('maintains the same replacementsId across conversation turns', async () => {
+    // Simulates the anonymize_fields step: generates a UUID on turn 1 when none is
+    // provided, and returns the same UUID on subsequent turns when one is provided.
+    // This mirrors the real step handler: input.replacements_id ?? (toolDeanonymization ? uuidv4() : undefined)
+    const agentConfig = { lifecycle_workflows: { beforeInference: ['wf-anon-1'] } };
+    const stepOutput = { effectiveFieldPolicy: {}, toolDeanonymization: { mode: 'all' } };
+
+    // ── Turn 1: new conversation, no replacementsId ──────────────────────────
+    executeWorkflowMock.mockImplementationOnce(({ workflowParams }) => {
+      // Step generates a new UUID because none was provided — mirrors the real step
+      const generatedId = workflowParams.replacements_id ?? 'uuid-generated-by-step';
+      return Promise.resolve(
+        makeCompletedExecution({ ...stepOutput, replacementsId: generatedId })
+      );
     });
-    const internalError = new Error('DB connection failed');
-    conversationClient.get.mockRejectedValue(internalError);
 
-    await expect(
-      runBeforeInferenceWorkflows({ context, workflowApi, getInternalServices, logger })
-    ).rejects.toThrow('DB connection failed');
-    expect(executeWorkflowMock).not.toHaveBeenCalled();
-  });
+    const turn1Context = createContext({ conversationId: 'conv-1' }); // no replacementsId
+    const { workflowApi, getInternalServices } = createDeps(agentConfig);
 
-  it('does not fetch conversation when conversationId is absent', async () => {
-    const context = createContext();
-    const { workflowApi, getInternalServices, conversationClient } = createDeps(
-      { lifecycle_workflows: { beforeInference: ['wf-anon-1'] } },
-      'repl-id'
+    const turn1Result = await runBeforeInferenceWorkflows({
+      context: turn1Context,
+      workflowApi,
+      getInternalServices,
+      logger,
+    });
+
+    // Turn 1 workflow received no replacements_id
+    expect(executeWorkflowMock).toHaveBeenCalledWith(
+      expect.objectContaining({ workflowParams: { replacements_id: undefined } })
     );
-    executeWorkflowMock.mockResolvedValue(makeCompletedExecution({ additionalRules: [] }));
 
-    await runBeforeInferenceWorkflows({ context, workflowApi, getInternalServices, logger });
+    const idFromTurn1 = (turn1Result as any)?.inferenceConfig?.replacementsId;
+    expect(idFromTurn1).toBe('uuid-generated-by-step');
 
-    expect(conversationClient.get).not.toHaveBeenCalled();
+    jest.clearAllMocks();
+
+    // ── Turn 2: same conversation, replacementsId from turn 1 ────────────────
+    executeWorkflowMock.mockImplementationOnce(({ workflowParams }) => {
+      // Step reuses the provided ID — mirrors the real step
+      const reusedId = workflowParams.replacements_id;
+      return Promise.resolve(makeCompletedExecution({ ...stepOutput, replacementsId: reusedId }));
+    });
+
+    // Caller now threads the ID that was persisted after turn 1
+    const turn2Context = createContext({
+      conversationId: 'conv-1',
+      replacementsId: idFromTurn1,
+    });
+    const { workflowApi: workflowApi2, getInternalServices: getInternalServices2 } =
+      createDeps(agentConfig);
+
+    const turn2Result = await runBeforeInferenceWorkflows({
+      context: turn2Context,
+      workflowApi: workflowApi2,
+      getInternalServices: getInternalServices2,
+      logger,
+    });
+
+    // Turn 2 workflow received the same ID that was generated in turn 1
+    expect(executeWorkflowMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workflowParams: { replacements_id: 'uuid-generated-by-step' },
+      })
+    );
+
+    const idFromTurn2 = (turn2Result as any)?.inferenceConfig?.replacementsId;
+
+    // Both turns share the same replacementsId — tokens from turn 1 remain valid in turn 2
+    expect(idFromTurn2).toBe(idFromTurn1);
   });
 
   // ── Error handling ────────────────────────────────────────────────────────

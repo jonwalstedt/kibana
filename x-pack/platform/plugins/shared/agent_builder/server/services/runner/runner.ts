@@ -89,6 +89,8 @@ export interface CreateScopedRunnerDeps {
   pluginsServiceStart: PluginsServiceStart;
   toolManager: ToolManager;
   filestore: IFileStore;
+  /** Mutable ref threaded from createRunner to tool hooks via the agent context. */
+  inferenceConfigHolder?: { current?: Record<string, unknown> };
 }
 
 export type CreateRunnerDeps = Omit<
@@ -198,6 +200,7 @@ export const createRunner = (deps: CreateRunnerDeps): Runner => {
     const toolManager = createToolManager();
 
     const modelProvider = modelProviderFactory({ request, defaultConnectorId });
+    const inferenceConfigHolder: { current?: Record<string, unknown> } = { current: undefined };
     const allDeps = {
       ...runnerDeps,
       modelProvider,
@@ -211,6 +214,7 @@ export const createRunner = (deps: CreateRunnerDeps): Runner => {
       promptManager,
       filestore,
       toolManager,
+      inferenceConfigHolder,
     };
     return createScopedRunner(allDeps);
   };

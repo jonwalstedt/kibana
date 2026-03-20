@@ -131,9 +131,14 @@ export const runDefaultAgentMode: RunChatAgentFn = async (
     abortSignal,
     agentId,
     conversationId: conversation?.id,
+    replacementsId: conversation?.replacements_id,
   });
 
   const inferenceConfig = beforeInferenceCtx.inferenceConfig;
+
+  if (context.inferenceConfigHolder && inferenceConfig) {
+    context.inferenceConfigHolder.current = inferenceConfig;
+  }
 
   const collectedFormatItems: unknown[] = [];
 
