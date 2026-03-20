@@ -20,6 +20,11 @@ export type AnonymizationEntityClass =
   | 'RESOURCE_ID';
 
 interface AnonymizationRuleBase {
+  /**
+   * Stable rule identifier, used for non-destructive merges.
+   * When omitted, the rule is treated as unique.
+   */
+  id?: string;
   type: string;
   enabled: boolean;
 }
@@ -81,6 +86,21 @@ export interface DeanonymizationOutput {
 }
 
 export type DeanonymizedMessage = Message & { deanonymizations: Deanonymization[] };
+
+/**
+ * The effective policy state for a single field after resolution.
+ * Structurally compatible with EffectiveFieldPolicy from @kbn/anonymization-common.
+ */
+export type EffectiveFieldPolicy =
+  | { action: 'deny' }
+  | { action: 'allow' }
+  | { action: 'anonymize'; entityClass: AnonymizationEntityClass };
+
+/**
+ * The effective policy for all fields after resolving one or more profiles.
+ * Keyed by field name. Structurally compatible with EffectivePolicy from @kbn/anonymization-common.
+ */
+export type EffectivePolicy = Record<string, EffectiveFieldPolicy>;
 
 /**
  * Anonymization metadata attached to inference responses and events.

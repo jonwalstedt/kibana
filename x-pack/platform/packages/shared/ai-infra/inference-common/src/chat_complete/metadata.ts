@@ -6,6 +6,7 @@
  */
 
 import type { Attributes } from '@opentelemetry/api';
+import type { AnonymizationRule, EffectivePolicy } from './anonymization/types';
 
 /**
  * Set of metadata that can be used then calling the inference APIs
@@ -51,6 +52,9 @@ export const isChatCompleteAnonymizationTargetType = (
  * field-based policy for a target.
  */
 export interface ChatCompleteAnonymizationMetadata {
+  /**
+   * @deprecated Use `additionalRules` instead. profileId is no longer used for rule resolution.
+   */
   profileId?: string;
   replacementsId?: string;
   target?: ChatCompleteAnonymizationTarget;
@@ -63,4 +67,23 @@ export interface ChatCompleteAnonymizationMetadata {
    * layer (e.g. Agent Builder) and want permission-gated reveal.
    */
   keepTokenized?: boolean;
+  /**
+   * Pre-resolved additional anonymization rules (by-value from caller).
+   * Merged with space-global rules in prepareAnonymization.
+   * Replaces the profileId-based lazy resolution pattern.
+   */
+  additionalRules?: AnonymizationRule[];
+  /**
+   * Pre-resolved field-based effective policy (by-value from caller).
+   * Produced by the anonymize_fields workflow step and passed through the
+   * beforeInference hook. When present, used directly by prepareAnonymization
+   * — no target lookup required.
+   */
+  effectiveFieldPolicy?: EffectivePolicy;
+  /**
+   * Anonymization pairs computed by attachment formatters at format time.
+   * Injected as initial anonymizations so the replacements store records them
+   * even though the original values no longer appear in message content.
+   */
+  attachmentAnonymizations?: Array<{ original: string; anonymized: string; entityClass: string }>;
 }

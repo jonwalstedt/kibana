@@ -101,6 +101,8 @@ export type {
   AnonymizationSettings,
   AnonymizationResponseMetadata,
   DeanonymizedMessageData,
+  EffectiveFieldPolicy,
+  EffectivePolicy,
 } from './anonymization';
 export { extractReplacementsId } from './anonymization';
 

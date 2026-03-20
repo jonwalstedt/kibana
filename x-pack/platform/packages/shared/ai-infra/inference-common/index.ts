@@ -75,6 +75,8 @@ export {
   type AnonymizationEntityClass,
   type AnonymizationResponseMetadata,
   type DeanonymizedMessageData,
+  type EffectiveFieldPolicy,
+  type EffectivePolicy,
   type CustomToolChoice,
   type ToolCallArgumentsOfToolDefinition,
   type ToolCallOfToolDefinitions,

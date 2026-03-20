@@ -19,5 +19,7 @@ export type {
   AnonymizationEntityClass,
   AnonymizationResponseMetadata,
   DeanonymizedMessageData,
+  EffectiveFieldPolicy,
+  EffectivePolicy,
 } from './types';
 export { extractReplacementsId } from './extract_replacements_id';
