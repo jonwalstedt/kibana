@@ -35,6 +35,19 @@ const EffectiveFieldPolicySchema = z.object({
   entityClass: z.string().optional(),
 });
 
+const ToolDeanonymizationPolicySchema = z.object({
+  mode: z
+    .enum(['allowlist', 'all', 'none'])
+    .describe(
+      'Controls which tools have their arguments deanonymized before execution. ' +
+        '"all" deanonymizes every tool, "allowlist" restricts to tool_ids, "none" disables.'
+    ),
+  tool_ids: z
+    .array(z.string())
+    .optional()
+    .describe('Tool IDs to deanonymize when mode is "allowlist". Ignored for other modes.'),
+});
+
 /**
  * Input schema: field rules are by-value — defined inline in the workflow step config.
  */
@@ -48,6 +61,15 @@ export const InputSchema = z.object({
     .max(512)
     .optional()
     .describe('Replacements session ID to carry forward.'),
+  tool_deanonymization: ToolDeanonymizationPolicySchema.optional().describe(
+    'Policy controlling which tools receive deanonymized arguments. ' +
+      'When omitted, tool arguments are not deanonymized.'
+  ),
+});
+
+const ToolDeanonymizationPolicyOutputSchema = z.object({
+  mode: z.enum(['allowlist', 'all', 'none']),
+  toolIds: z.array(z.string()).optional(),
 });
 
 /**
@@ -66,6 +88,9 @@ export const OutputSchema = z.object({
     .max(512)
     .optional()
     .describe('Replacements session ID threaded through from input.'),
+  toolDeanonymization: ToolDeanonymizationPolicyOutputSchema.optional().describe(
+    'Policy controlling which tools receive deanonymized arguments before execution.'
+  ),
 });
 
 export type AnonymizeFieldsStepInput = z.infer<typeof InputSchema>;

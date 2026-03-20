@@ -184,6 +184,23 @@ export interface InferenceServerStart {
   deanonymizeText: (namespace: string, replacementsId: string, text: string) => Promise<string>;
 
   /**
+   * Returns the token-to-original map for the replacements document identified by the
+   * given namespace and replacementsId. Returns null if anonymization is disabled or
+   * the replacements document is not found.
+   *
+   * SECURITY: Same namespace isolation requirements as `deanonymizeText`. `namespace`
+   * MUST be derived from the request-scoped SO client, never from user-controlled input.
+   * A `ReplacementsNamespaceMismatchError` is thrown when the namespace does not match.
+   *
+   * @param namespace - The space namespace the replacements document belongs to
+   * @param replacementsId - The ID of the replacements document
+   */
+  getTokenToOriginalMap: (
+    namespace: string,
+    replacementsId: string
+  ) => Promise<Record<string, string> | null>;
+
+  /**
    * Lists available Elasticsearch inference endpoints, optionally filtered by task type.
    *
    * @param taskType - Optional task type to filter by (e.g. 'chat_completion')

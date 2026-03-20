@@ -5,6 +5,7 @@
  * 2.0.
  */
 
+import { v4 as uuidv4 } from 'uuid';
 import { resolveEffectivePolicy } from '@kbn/anonymization-common';
 import type { FieldRule } from '@kbn/anonymization-common';
 import { anonymizeFieldsStepCommonDefinition } from '../../common/step_types/anonymize_fields_step';
@@ -31,11 +32,28 @@ export const getAnonymizeFieldsStepDefinition = () => ({
 
     const effectiveFieldPolicy = resolveEffectivePolicy(fieldRules);
 
+    const toolDeanonymization = input.tool_deanonymization
+      ? {
+          mode: input.tool_deanonymization.mode,
+          ...(input.tool_deanonymization.tool_ids
+            ? { toolIds: input.tool_deanonymization.tool_ids }
+            : {}),
+        }
+      : undefined;
+
+    // When tool deanonymization is enabled, a replacementsId is required so the tool
+    // call hooks can look up the token→original map. Pre-generate one here so it flows
+    // into inferenceConfig → anonymization metadata → prepareAnonymization (which carries
+    // it forward via metadata.anonymization.replacementsId, line 92 in prepare_anonymization.ts).
+    // This ensures inferenceConfigHolder.current.replacementsId is set before any tool calls.
+    const replacementsId = input.replacements_id ?? (toolDeanonymization ? uuidv4() : undefined);
+
     return {
       output: {
         effectiveFieldPolicy,
         ...(input.keep_tokenized ? { keepTokenized: true } : {}),
-        ...(input.replacements_id ? { replacementsId: input.replacements_id } : {}),
+        ...(replacementsId ? { replacementsId } : {}),
+        ...(toolDeanonymization ? { toolDeanonymization } : {}),
       },
     };
   },

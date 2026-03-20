@@ -11,6 +11,7 @@ const createStartContractMock = (): jest.Mocked<InferenceServerStart> => {
   return {
     isAnonymizationEnabled: jest.fn().mockReturnValue(false),
     deanonymizeText: jest.fn().mockResolvedValue(''),
+    getTokenToOriginalMap: jest.fn().mockResolvedValue(null),
     getClient: jest.fn(),
     getChatModel: jest.fn(),
     getConnectorList: jest.fn(),

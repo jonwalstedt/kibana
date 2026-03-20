@@ -222,6 +222,28 @@ export class InferencePlugin
       };
     };
 
+    // Shared helper: resolve encryption key, fetch replacements set, return token→original map.
+    // Throws ReplacementsNamespaceMismatchError on cross-namespace reads (callers must propagate).
+    const fetchTokenToOriginalMap = async (
+      namespace: string,
+      replacementsId: string
+    ): Promise<Record<string, string> | null> => {
+      const policyService = pluginsStart.anonymization?.getPolicyService();
+      const encryptionKey = await resolveReplacementsEncryptionKey({
+        namespace,
+        anonymizationEnabled,
+        policyService,
+      });
+      const repo = new ReplacementsRepository(core.elasticsearch.client.asInternalUser, {
+        encryptionKey,
+      });
+      const replacementsSet = await repo.get(namespace, replacementsId);
+      if (!replacementsSet) {
+        return null;
+      }
+      return repo.toTokenToOriginalMap(replacementsSet);
+    };
+
     return {
       isAnonymizationEnabled: () => anonymizationEnabled,
 
@@ -230,20 +252,10 @@ export class InferencePlugin
           return text;
         }
         try {
-          const policyService = pluginsStart.anonymization?.getPolicyService();
-          const encryptionKey = await resolveReplacementsEncryptionKey({
-            namespace,
-            anonymizationEnabled,
-            policyService,
-          });
-          const repo = new ReplacementsRepository(core.elasticsearch.client.asInternalUser, {
-            encryptionKey,
-          });
-          const replacementsSet = await repo.get(namespace, replacementsId);
-          if (!replacementsSet) {
+          const tokenToOriginal = await fetchTokenToOriginalMap(namespace, replacementsId);
+          if (!tokenToOriginal) {
             return text;
           }
-          const tokenToOriginal = repo.toTokenToOriginalMap(replacementsSet);
           return replaceTokensWithOriginals(text, tokenToOriginal);
         } catch (err) {
           if (err instanceof ReplacementsNamespaceMismatchError) {
@@ -256,6 +268,25 @@ export class InferencePlugin
             }`
           );
           return text;
+        }
+      },
+
+      getTokenToOriginalMap: async (namespace: string, replacementsId: string) => {
+        if (!anonymizationEnabled) {
+          return null;
+        }
+        try {
+          return await fetchTokenToOriginalMap(namespace, replacementsId);
+        } catch (err) {
+          if (err instanceof ReplacementsNamespaceMismatchError) {
+            throw err;
+          }
+          this.logger.warn(
+            `[inference.getTokenToOriginalMap] Failed to get map for replacementsId=${replacementsId}: ${
+              err instanceof Error ? err.message : String(err)
+            }`
+          );
+          return null;
         }
       },
 
