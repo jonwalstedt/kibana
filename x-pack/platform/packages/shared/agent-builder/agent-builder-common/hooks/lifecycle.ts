@@ -14,6 +14,13 @@ export enum HookLifecycle {
   beforeAgent = 'beforeAgent',
   beforeToolCall = 'beforeToolCall',
   afterToolCall = 'afterToolCall',
+  /**
+   * Fires once per graph execution (i.e., once per call to runDefaultAgentMode), before
+   * the inference call is made. Re-runs on regenerate and resume. Blocking handlers may
+   * return an `inferenceConfig` record that is merged into the context and forwarded to
+   * inference by the caller.
+   */
+  beforeInference = 'beforeInference',
 }
 
 /**

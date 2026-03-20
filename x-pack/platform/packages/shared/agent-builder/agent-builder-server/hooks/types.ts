@@ -14,7 +14,7 @@ import type { ToolHandlerContext } from '../tools/handler';
 
 export { HookLifecycle, HookExecutionMode };
 
-interface AgentHookContextBase {
+export interface AgentHookContextBase {
   request: KibanaRequest;
   abortSignal?: AbortSignal;
   agentId?: string;
@@ -37,10 +37,29 @@ export interface AfterToolCallHookContext extends ToolCallHookContextBase {
   toolHandlerContext: ToolHandlerContext;
 }
 
+/**
+ * Context for the beforeInference hook. Fired once per graph execution
+ * before the inference call is made. Content-unaware.
+ *
+ * Blocking handlers may return an `inferenceConfig` record. The framework
+ * merges returned configs across handlers (arrays are concatenated; scalar
+ * values use last-writer-wins) and makes the result available to the caller.
+ */
+export interface BeforeInferenceHookContext extends AgentHookContextBase {
+  /** ID of the current conversation, if any. */
+  conversationId?: string;
+  /**
+   * Accumulated inference configuration from all preceding blocking handlers.
+   * Arrays are concatenated across handlers; scalar values use last-writer-wins.
+   */
+  inferenceConfig?: Record<string, unknown>;
+}
+
 export interface HookContextByLifecycle {
   [HookLifecycle.beforeAgent]: BeforeAgentHookContext;
   [HookLifecycle.beforeToolCall]: BeforeToolCallHookContext;
   [HookLifecycle.afterToolCall]: AfterToolCallHookContext;
+  [HookLifecycle.beforeInference]: BeforeInferenceHookContext;
 }
 
 export type HookContext<E extends HookLifecycle = HookLifecycle> = HookContextByLifecycle[E];
@@ -57,6 +76,14 @@ export interface HookHandlerResultByLifecycle {
   };
   [HookLifecycle.afterToolCall]: {
     toolReturn?: RunToolReturn;
+  };
+  [HookLifecycle.beforeInference]: {
+    /**
+     * Arbitrary configuration to merge into the hook context for use by the
+     * caller before the inference call. Arrays are concatenated across
+     * handlers; scalar values use last-writer-wins.
+     */
+    inferenceConfig?: Record<string, unknown>;
   };
 }
 

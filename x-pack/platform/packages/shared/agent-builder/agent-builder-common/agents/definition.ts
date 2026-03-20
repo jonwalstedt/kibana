@@ -110,6 +110,7 @@ export interface AgentConfiguration {
 
   /**
    * Optional list of workflow IDs. When set, these workflows run before the agent is executed.
+   * @deprecated Use `lifecycle_workflows.beforeAgent` instead.
    */
   workflow_ids?: string[];
 
@@ -118,6 +119,13 @@ export interface AgentConfiguration {
    * Skills contributed by these plugins will be available to the agent during execution.
    */
   plugin_ids?: string[];
+
+  /**
+   * Map of lifecycle name → workflow IDs to run at that lifecycle point.
+   * Supported lifecycle keys: `beforeAgent`, `beforeInference`.
+   * Supersedes the legacy `workflow_ids` field.
+   */
+  lifecycle_workflows?: Record<string, string[]>;
 
   /**
    * Custom configuration for the research step of the agent.

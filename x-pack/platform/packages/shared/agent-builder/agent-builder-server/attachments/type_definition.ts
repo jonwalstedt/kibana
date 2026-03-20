@@ -81,6 +81,18 @@ export interface AttachmentTypeDefinition<TType extends string = string, TConten
 export interface AttachmentFormatContext {
   request: KibanaRequest;
   spaceId: string;
+  /**
+   * Generic inference configuration produced by the beforeInference hook (e.g. from
+   * workflow steps). Attachment formatters may extract domain-specific fields from this
+   * record — for example, `effectiveFieldPolicy` for field-level anonymization.
+   */
+  inferenceConfig?: Record<string, unknown>;
+  /**
+   * Generic side-effect collector. Attachment formatters may call this to emit arbitrary
+   * data that the caller collects after formatting (e.g. pre-computed masks for the
+   * replacements store). The caller is responsible for interpreting the emitted items.
+   */
+  collect?: (item: unknown) => void;
 }
 
 /**

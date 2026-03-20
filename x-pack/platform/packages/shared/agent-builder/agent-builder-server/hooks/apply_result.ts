@@ -11,6 +11,7 @@ import {
   type BeforeAgentHookContext,
   type BeforeToolCallHookContext,
   type AfterToolCallHookContext,
+  type BeforeInferenceHookContext,
   type HookHandlerResult,
 } from './types';
 
@@ -44,6 +45,33 @@ export function applyAfterToolCallResult(
   return { ...context, toolReturn: result.toolReturn };
 }
 
+function mergeInferenceConfig(
+  existing: Record<string, unknown>,
+  incoming: Record<string, unknown>
+): Record<string, unknown> {
+  const merged: Record<string, unknown> = { ...existing };
+  for (const [key, value] of Object.entries(incoming)) {
+    if (value === undefined) continue;
+    if (Array.isArray(value) && Array.isArray(merged[key])) {
+      merged[key] = [...(merged[key] as unknown[]), ...value];
+    } else {
+      merged[key] = value;
+    }
+  }
+  return merged;
+}
+
+export function applyBeforeInferenceResult(
+  context: BeforeInferenceHookContext,
+  result: void | HookHandlerResult<HookLifecycle.beforeInference>
+): BeforeInferenceHookContext {
+  if (!isResultObject(result) || !result.inferenceConfig) return context;
+  return {
+    ...context,
+    inferenceConfig: mergeInferenceConfig(context.inferenceConfig ?? {}, result.inferenceConfig),
+  };
+}
+
 /**
  * Map of each hook lifecycle to its corresponding apply-result function.
  */
@@ -58,4 +86,5 @@ export const applyHookResultByLifecycle: ApplyHookResultByLifecycle = {
   [HookLifecycle.beforeAgent]: applyBeforeAgentResult,
   [HookLifecycle.beforeToolCall]: applyBeforeToolCallResult,
   [HookLifecycle.afterToolCall]: applyAfterToolCallResult,
+  [HookLifecycle.beforeInference]: applyBeforeInferenceResult,
 };
