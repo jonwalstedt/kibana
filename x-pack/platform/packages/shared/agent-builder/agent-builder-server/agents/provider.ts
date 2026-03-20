@@ -165,6 +165,12 @@ export interface AgentHandlerContext {
    * Whether anonymization platform behavior is active for this execution.
    */
   anonymizationEnabled?: boolean;
+  /**
+   * Mutable ref holding the most recent inferenceConfig produced by beforeInference.
+   * Set by run_chat_agent after beforeInference completes; read by tool call hooks
+   * so they can access anonymization policy without passing it through every call.
+   */
+  inferenceConfigHolder?: { current?: Record<string, unknown> };
 }
 
 /**

@@ -29,6 +29,8 @@ interface ToolCallHookContextBase extends AgentHookContextBase {
   toolCallId: string;
   toolParams: Record<string, unknown>;
   source: ToolCallSource;
+  /** Inference configuration from the most recent beforeInference hook run, if any. */
+  inferenceConfig?: Record<string, unknown>;
 }
 
 export type BeforeToolCallHookContext = ToolCallHookContextBase;
@@ -48,6 +50,13 @@ export interface AfterToolCallHookContext extends ToolCallHookContextBase {
 export interface BeforeInferenceHookContext extends AgentHookContextBase {
   /** ID of the current conversation, if any. */
   conversationId?: string;
+  /**
+   * The replacements session ID from the current conversation, if any.
+   * Populated by the agent runner from the already-loaded Conversation object.
+   * Hook handlers should pass this to workflow steps so tokens from previous
+   * turns remain valid across the conversation session.
+   */
+  replacementsId?: string;
   /**
    * Accumulated inference configuration from all preceding blocking handlers.
    * Arrays are concatenated across handlers; scalar values use last-writer-wins.
