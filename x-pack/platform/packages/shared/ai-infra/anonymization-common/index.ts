@@ -40,6 +40,8 @@ export {
   NER_ENTITY_CLASSES,
   TOKEN_SOURCE_TYPES,
   NER_MODEL_ID,
+  MAX_REGEX_PATTERN_LENGTH,
+  MAX_TEXT_RULES_PER_PROFILE,
 } from './src/schemas';
 
 export type { AnonymizationEntityClass, NerEntityClass, TokenSourceType } from './src/schemas';

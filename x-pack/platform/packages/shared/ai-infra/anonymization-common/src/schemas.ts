@@ -66,6 +66,12 @@ export const fieldRuleSchema = z
     path: ['entityClass'],
   });
 
+/** Maximum allowed length for a regex pattern (Layer 1 ReDoS protection). */
+export const MAX_REGEX_PATTERN_LENGTH = 500;
+
+/** Maximum total number of text rules (regexRules + nerRules) per profile. */
+export const MAX_TEXT_RULES_PER_PROFILE = 50;
+
 export const regexRuleSchema = z.object({
   /** Unique rule identifier. */
   id: z.string(),
@@ -73,8 +79,14 @@ export const regexRuleSchema = z.object({
   type: z.literal('regex'),
   /** Token prefix/class label. Must be one of the canonical anonymization entity classes. */
   entityClass: anonymizationEntityClassSchema,
-  /** The regular expression pattern. */
-  pattern: z.string(),
+  /**
+   * The regular expression pattern.
+   * Maximum length: 500 characters (Layer 1 ReDoS protection — limits pattern complexity
+   * without requiring an external dependency).
+   */
+  pattern: z.string().max(MAX_REGEX_PATTERN_LENGTH, {
+    message: `Regex pattern exceeds maximum length of ${MAX_REGEX_PATTERN_LENGTH} characters`,
+  }),
   /** Whether the rule is active. */
   enabled: z.boolean(),
 });
@@ -98,11 +110,20 @@ export const nerRuleSchema = z.object({
 });
 
 /** Reusable profile rules payload shared by APIs and persisted profiles. */
-export const anonymizationProfileRulesSchema = z.object({
-  fieldRules: z.array(fieldRuleSchema),
-  regexRules: z.array(regexRuleSchema).optional().default([]),
-  nerRules: z.array(nerRuleSchema).optional().default([]),
-});
+export const anonymizationProfileRulesSchema = z
+  .object({
+    fieldRules: z.array(fieldRuleSchema),
+    regexRules: z.array(regexRuleSchema).optional().default([]),
+    nerRules: z.array(nerRuleSchema).optional().default([]),
+  })
+  .refine(
+    (rules) =>
+      (rules.regexRules ?? []).length + (rules.nerRules ?? []).length <= MAX_TEXT_RULES_PER_PROFILE,
+    {
+      message: `Profile cannot exceed ${MAX_TEXT_RULES_PER_PROFILE} text rules (regexRules + nerRules combined)`,
+      path: ['regexRules'],
+    }
+  );
 
 export const anonymizationProfileSchema = z.object({
   /** UUID for the profile. */

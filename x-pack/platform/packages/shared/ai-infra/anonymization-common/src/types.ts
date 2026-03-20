@@ -22,7 +22,12 @@ import type {
 } from './schemas';
 
 export type { AnonymizationEntityClass, NerEntityClass, TokenSourceType } from './schemas';
-export { ANONYMIZATION_ENTITY_CLASSES, NER_ENTITY_CLASSES } from './schemas';
+export {
+  ANONYMIZATION_ENTITY_CLASSES,
+  NER_ENTITY_CLASSES,
+  MAX_REGEX_PATTERN_LENGTH,
+  MAX_TEXT_RULES_PER_PROFILE,
+} from './schemas';
 
 /**
  * A per-field rule specifying whether the field is allowed as context,
