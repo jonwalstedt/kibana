@@ -203,52 +203,52 @@ export const MoreActionsButton: React.FC<MoreActionsButtonProps> = ({
   const menuItems = [
     ...(isEmbeddedContext && application
       ? [
-        <MenuSectionTitle key="view-title" title={fullscreenLabels.view} />,
-        <EuiContextMenuItem
-          key="full-screen"
-          icon="fullScreen"
-          size="s"
-          data-test-subj="agentBuilderFullScreenMenuItem"
-          onClick={handleOpenFullScreen}
-        >
-          {fullscreenLabels.fullScreen}
-        </EuiContextMenuItem>,
-      ]
+          <MenuSectionTitle key="view-title" title={fullscreenLabels.view} />,
+          <EuiContextMenuItem
+            key="full-screen"
+            icon="fullScreen"
+            size="s"
+            data-test-subj="agentBuilderFullScreenMenuItem"
+            onClick={handleOpenFullScreen}
+          >
+            {fullscreenLabels.fullScreen}
+          </EuiContextMenuItem>,
+        ]
       : []),
     ...(hasPersistedConversation
       ? [
-        <MenuSectionTitle
-          key="conversation-title"
-          title={fullscreenLabels.conversationTitleLabel}
-        />,
-        <EuiContextMenuItem
-          key="rename"
-          icon="pencil"
-          size="s"
-          data-test-subj="agentBuilderConversationRenameButton"
-          onClick={() => {
-            closePopover();
-            onRenameConversation();
-          }}
-        >
-          {fullscreenLabels.rename}
-        </EuiContextMenuItem>,
-        <EuiContextMenuItem
-          key="delete"
-          icon="trash"
-          size="s"
-          css={css`
+          <MenuSectionTitle
+            key="conversation-title"
+            title={fullscreenLabels.conversationTitleLabel}
+          />,
+          <EuiContextMenuItem
+            key="rename"
+            icon="pencil"
+            size="s"
+            data-test-subj="agentBuilderConversationRenameButton"
+            onClick={() => {
+              closePopover();
+              onRenameConversation();
+            }}
+          >
+            {fullscreenLabels.rename}
+          </EuiContextMenuItem>,
+          <EuiContextMenuItem
+            key="delete"
+            icon="trash"
+            size="s"
+            css={css`
               color: ${euiTheme.colors.textDanger};
             `}
-          data-test-subj="agentBuilderConversationDeleteButton"
-          onClick={() => {
-            closePopover();
-            setIsDeleteModalOpen(true);
-          }}
-        >
-          {fullscreenLabels.delete}
-        </EuiContextMenuItem>,
-      ]
+            data-test-subj="agentBuilderConversationDeleteButton"
+            onClick={() => {
+              closePopover();
+              setIsDeleteModalOpen(true);
+            }}
+          >
+            {fullscreenLabels.delete}
+          </EuiContextMenuItem>,
+        ]
       : []),
     <MenuSectionTitle key="agent-title" title={fullscreenLabels.conversationAgentLabel} />,
     <EuiContextMenuItem
@@ -299,112 +299,80 @@ export const MoreActionsButton: React.FC<MoreActionsButtonProps> = ({
     </EuiContextMenuItem>,
     ...(isExperimentalFeaturesEnabled
       ? [
-        <EuiContextMenuItem
-          key="skills"
-          icon="bullseye"
-          onClick={closePopover}
-          href={createAgentBuilderUrl(appPaths.skills.list)}
-          data-test-subj="agentBuilderActionsSkills"
-        >
-          {fullscreenLabels.skills}
-        </EuiContextMenuItem>,
-        <EuiContextMenuItem
-          key="plugins"
-          icon="package"
-          onClick={closePopover}
-          href={createAgentBuilderUrl(appPaths.plugins.list)}
-          data-test-subj="agentBuilderActionsPlugins"
-        >
-          {fullscreenLabels.plugins}
-        </EuiContextMenuItem>,
-      ]
+          <EuiContextMenuItem
+            key="skills"
+            icon="bullseye"
+            onClick={closePopover}
+            href={createAgentBuilderUrl(appPaths.skills.list)}
+            data-test-subj="agentBuilderActionsSkills"
+          >
+            {fullscreenLabels.skills}
+          </EuiContextMenuItem>,
+          <EuiContextMenuItem
+            key="plugins"
+            icon="package"
+            onClick={closePopover}
+            href={createAgentBuilderUrl(appPaths.plugins.list)}
+            data-test-subj="agentBuilderActionsPlugins"
+          >
+            {fullscreenLabels.plugins}
+          </EuiContextMenuItem>,
+        ]
       : []),
     ...(isABConnectorsEnabled
       ? [
-        <EuiContextMenuItem
-          key="connectors"
-          icon="plugs"
-          onClick={closePopover}
-          href={createAgentBuilderUrl(appPaths.connectors.list)}
-          data-test-subj="agentBuilderActionsConnectors"
-        >
-          {fullscreenLabels.connectors}
-        </EuiContextMenuItem>,
-      ]
+          <EuiContextMenuItem
+            key="connectors"
+            icon="plugs"
+            onClick={closePopover}
+            href={createAgentBuilderUrl(appPaths.connectors.list)}
+            data-test-subj="agentBuilderActionsConnectors"
+          >
+            {fullscreenLabels.connectors}
+          </EuiContextMenuItem>,
+        ]
       : []),
     ...(isDataSourcesEnabled
       ? [
-        <EuiContextMenuItem
-          key="sources"
-          icon="plugs"
-          onClick={closePopover}
-          href={application.getUrlForApp(DATA_SOURCES_APP_ID)}
-          data-test-subj="agentBuilderActionsSources"
-        >
-          {fullscreenLabels.sources}
-        </EuiContextMenuItem>,
-      ]
+          <EuiContextMenuItem
+            key="sources"
+            icon="plugs"
+            onClick={closePopover}
+            href={application.getUrlForApp(DATA_SOURCES_APP_ID)}
+            data-test-subj="agentBuilderActionsSources"
+          >
+            {fullscreenLabels.sources}
+          </EuiContextMenuItem>,
+        ]
       : []),
     ...(showAnonymizationToggle
       ? [
-        <EuiContextMenuItem
-          key="anonymizationToggle"
-          icon={showAnonymized ? 'eye' : 'eyeClosed'}
-          size="s"
-          data-test-subj="agentBuilderAnonymizationToggle"
-          onClick={() => {
-            setShowAnonymized(!showAnonymized);
-            closePopover();
-          }}
-        >
-          {showAnonymized ? fullscreenLabels.showOriginalValues : fullscreenLabels.showAnonymized}
-        </EuiContextMenuItem>,
-      ]
-      : []),
-    ...(showAnonymizationToggle
-      ? [
-        <EuiContextMenuItem
-          key="anonymizationToggle"
-          icon={showAnonymized ? 'eye' : 'eyeClosed'}
-          size="s"
-          data-test-subj="agentBuilderAnonymizationToggle"
-          onClick={() => {
-            setShowAnonymized(!showAnonymized);
-            closePopover();
-          }}
-        >
-          {showAnonymized ? fullscreenLabels.showOriginalValues : fullscreenLabels.showAnonymized}
-        </EuiContextMenuItem>,
-      ]
-      : []),
-    ...(showAnonymizationToggle
-      ? [
-        <EuiContextMenuItem
-          key="anonymizationToggle"
-          icon={showAnonymized ? 'eye' : 'eyeClosed'}
-          size="s"
-          data-test-subj="agentBuilderAnonymizationToggle"
-          onClick={() => {
-            setShowAnonymized(!showAnonymized);
-            closePopover();
-          }}
-        >
-          {showAnonymized ? fullscreenLabels.showOriginalValues : fullscreenLabels.showAnonymized}
-        </EuiContextMenuItem>,
-      ]
+          <EuiContextMenuItem
+            key="anonymizationToggle"
+            icon={showAnonymized ? 'eye' : 'eyeClosed'}
+            size="s"
+            data-test-subj="agentBuilderAnonymizationToggle"
+            onClick={() => {
+              setShowAnonymized(!showAnonymized);
+              closePopover();
+            }}
+          >
+            {showAnonymized ? fullscreenLabels.showOriginalValues : fullscreenLabels.showAnonymized}
+          </EuiContextMenuItem>,
+        ]
       : []),
     ...(hasAccessToGenAiSettings
       ? [
-        <EuiContextMenuItem
-          key="agentBuilderSettings"
-          icon="gear"
-          onClick={closePopover}
-          href={application.getUrlForApp('management', { path: '/ai/genAiSettings' })}
-          data-test-subj="agentBuilderGenAiSettingsButton"
-        >
-          {fullscreenLabels.genAiSettings}
-        </EuiContextMenuItem>,
-      ]
+          <EuiContextMenuItem
+            key="agentBuilderSettings"
+            icon="gear"
+            onClick={closePopover}
+            href={application.getUrlForApp('management', { path: '/ai/genAiSettings' })}
+            data-test-subj="agentBuilderGenAiSettingsButton"
+          >
+            {fullscreenLabels.genAiSettings}
+          </EuiContextMenuItem>,
+        ]
       : []),
   ];
 
