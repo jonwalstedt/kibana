@@ -1,0 +1,70 @@
+flowchart TD
+    Start([User message arrives<br/>real PII, e.g. 'email john@acme.com…']) --> BA[beforeAgent hook fires]
+
+    subgraph BAblock [beforeAgent — build the token map]
+        BA --> SynthEvent[AB synthesizes event payload<br/>message = newMsg + last N=4 rounds<br/>conversationSalt, agentId, …]
+        SynthEvent --> Loop{For each workflow ID in<br/>AGENT_BUILDER_PRE_PROMPT_WORKFLOW_IDS<br/>+ agent.workflow_ids}
+        Loop -->|engine path<br/>multi-step| EW[executeWorkflow<br/>waitForCompletion: true<br/>initialWaitMs: 0, checkIntervalMs: 50]
+        Loop -->|fast path<br/>single ai.pii step| Bypass[Single-step bypass:<br/>createAiPiiStepDefinition<br/>called directly]
+        EW --> AiPii
+        Bypass --> AiPii[ai.pii step runs<br/>NER + RegEx on Piscina pool<br/>HMAC-SHA256 value, salt → 32-hex token]
+        AiPii --> Out[workflow.output<br/>forward / inverse / entities /<br/>toolDeanonymization]
+        Out --> Loop
+        Loop -->|all done| Merge[Merge maps from all workflows]
+        Merge --> Check{Strategy mismatch?<br/>OR same value, different class?}
+        Check -->|yes| Abort([Abort round<br/>user-visible error])
+        Check -->|no| Store[Store on RunContext.anonymization:<br/>forward, inverse, entities,<br/>toolDeanonymization policy]
+    end
+
+    Store --> Runner[Agent runner proceeds<br/>nextInput stays as real values]
+
+    subgraph Inference [Each LLM call — wrapped by AnonymizingChatModel decorator]
+        Runner --> TOut[transform-out:<br/>forward map applied to messages<br/>desc-length-key substitution<br/>+ system prompt instruction injected<br/>listing only entity types in this round]
+        TOut --> LLM[chatModel.bindTools.invoke<br/>InferenceChatModel via langchain]
+        LLM --> Stream[Inference plugin event stream]
+
+        Stream --> Fork{Event type?}
+        Fork -->|messageChunk /<br/>messageComplete /<br/>reasoning| TInText[transform-in on text:<br/>scan with 256-byte lookahead buffer<br/>candidates → inverse-record lookup<br/>hallucinated tokens pass through]
+        Fork -->|toolCall| TInToolFork[transform-in on tool-call params:<br/>FORK into two copies]
+        Fork -->|thinkingComplete| Skip[no transform —<br/>no text payload]
+
+        TInText --> Emit[Emit to chat event stream<br/>real values to client + storage]
+        Skip --> Emit
+
+        TInToolFork --> ClientCopy[Client/storage copy:<br/>recursive walk, inverse-record lookup<br/>own-property check on string leaves<br/>→ user sees real values]
+        TInToolFork --> LLMCopy[LLM-context copy:<br/>kept TOKENIZED]
+
+        ClientCopy --> Emit
+        LLMCopy --> BTC
+    end
+
+    subgraph Tools [Tool execution path — LLM-context copy only]
+        BTC[beforeToolCall fires<br/>blocking, existing hook]
+        BTC --> Policy{toolDeanonymization<br/>policy for this tool?}
+        Policy -->|none / not allowlisted| ToolTokens[Tool sees tokens]
+        Policy -->|allowlist match / all| ToolReal[Recursively deanonymize toolParams<br/>via inverse map → tool sees real values]
+        Policy -->|transform throws| AbortTool([Abort tool call<br/>user-visible error])
+
+        ToolTokens --> Exec[Tool executes]
+        ToolReal --> Exec
+        Exec --> ATC[afterToolCall fires<br/>blocking, reverse priority]
+        ATC --> Detect[Run ai.pii detection on result text<br/>NER + regex on tool output<br/>extend forward/inverse/entities<br/>HMAC determinism = stable tokens]
+        Detect --> ReAnon[Re-anonymize results<br/>using extended forward map<br/>desc-length-key substitution]
+        ReAnon --> NextLLM[Tokenized result re-enters<br/>LLM context for next inference call]
+        NextLLM --> Runner
+    end
+
+    Emit --> RC([roundComplete event<br/>final message real-valued at client])
+    RC --> EndRound[RunContext goes out of scope<br/>token map GC'd<br/>storage holds real values]
+
+    classDef hookNode fill:#fef3c7,stroke:#a16207,color:#000
+    classDef transformNode fill:#dbeafe,stroke:#1e40af,color:#000
+    classDef abortNode fill:#fee2e2,stroke:#b91c1c,color:#000
+    classDef storeNode fill:#dcfce7,stroke:#166534,color:#000
+    classDef llmNode fill:#f3e8ff,stroke:#6b21a8,color:#000
+
+    class BA,BTC,ATC hookNode
+    class TOut,TInText,TInToolFork,ClientCopy,LLMCopy,Detect,ReAnon transformNode
+    class Abort,AbortTool abortNode
+    class Store,EndRound storeNode
+    class LLM,Stream llmNode
