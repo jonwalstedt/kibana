@@ -2,7 +2,7 @@ flowchart TD
     Start([User message arrives<br/>real PII, e.g. 'email john@acme.com…']) --> BA[beforeAgent hook fires]
 
     subgraph BAblock [beforeAgent — build the token map]
-        BA --> SynthEvent[AB synthesizes event payload<br/>message = newMsg + last N=4 rounds<br/>conversationSalt, agentId, …]
+        BA --> SynthEvent[AB synthesizes event payload<br/>message = newMsg + textual content of<br/>round's outgoing LLM context<br/>detection window = LLM-visible window<br/>conversationSalt, agentId, …]
         SynthEvent --> Loop{For each workflow ID in<br/>AGENT_BUILDER_PRE_PROMPT_WORKFLOW_IDS<br/>+ agent.workflow_ids}
         Loop -->|engine path<br/>multi-step| EW[executeWorkflow<br/>waitForCompletion: true<br/>initialWaitMs: 0, checkIntervalMs: 50]
         Loop -->|fast path<br/>single ai.pii step| Bypass[Single-step bypass:<br/>createAiPiiStepDefinition<br/>called directly]
@@ -11,7 +11,7 @@ flowchart TD
         AiPii --> Out[workflow.output<br/>forward / inverse / entities /<br/>toolDeanonymization]
         Out --> Loop
         Loop -->|all done| Merge[Merge maps from all workflows]
-        Merge --> Check{Strategy mismatch?<br/>OR same value, different class?}
+        Merge --> Check{Same value detected as<br/>different entity class<br/>across workflows?}
         Check -->|yes| Abort([Abort round<br/>user-visible error])
         Check -->|no| Store[Store on RunContext.anonymization:<br/>forward, inverse, entities,<br/>toolDeanonymization policy]
     end
