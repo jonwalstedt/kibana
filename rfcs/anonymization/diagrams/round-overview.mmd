@@ -1,0 +1,30 @@
+flowchart TD
+    User([User types:<br/>'email john@acme.com about EMP-48217'])
+
+    User --> BA[beforeAgent hook<br/>runs the user's anonymization workflow]
+    BA --> Map["produces a token map<br/>john@acme.com → EMAIL_…<br/>EMP-48217 → USER_NAME_…"]
+    Map --> RC[(Token map stored on RunContext<br/>in-memory, per round)]
+
+    RC --> Wrap{{Every LLM call is wrapped}}
+    Wrap --> TOut[tokenize outgoing messages]
+    TOut --> LLM[(LLM sees tokens only)]
+    LLM --> TIn[detokenize streaming response]
+    TIn --> Sink([user and storage<br/>see real values])
+
+    Sink --> End[Round ends<br/>RunContext garbage-collected<br/>map gone]
+
+    classDef userNode fill:#dcfce7,stroke:#166534,color:#000
+    classDef hookNode fill:#fef3c7,stroke:#a16207,color:#000
+    classDef contextNode fill:#dcfce7,stroke:#166534,color:#000
+    classDef transformNode fill:#dbeafe,stroke:#1e40af,color:#000
+    classDef llmNode fill:#f3e8ff,stroke:#6b21a8,color:#000
+    classDef wrapNode fill:#e0e7ff,stroke:#3730a3,color:#000
+    classDef endNode fill:#e5e7eb,stroke:#374151,color:#000
+
+    class User,Sink userNode
+    class BA hookNode
+    class Map,RC contextNode
+    class TOut,TIn transformNode
+    class LLM llmNode
+    class Wrap wrapNode
+    class End endNode
