@@ -28,6 +28,7 @@ import {
   createChatModel,
 } from './inference_client';
 import { RegexWorkerService } from './chat_complete/anonymization/regex_worker_service';
+import { PiiRegexWorkerService } from './workflow_anonymization/detection';
 import { registerRoutes } from './routes';
 import type { InferenceConfig } from './config';
 import type {
@@ -98,6 +99,7 @@ export const resolveWorkflowAnonymizationOptions = ({
   preLLMTimeoutMs,
   encryptionKey,
   provider,
+  piiRegexWorker,
   logger,
 }: {
   enabled: boolean;
@@ -105,6 +107,7 @@ export const resolveWorkflowAnonymizationOptions = ({
   preLLMTimeoutMs: number;
   encryptionKey?: string;
   provider?: WorkflowAnonymizationProvider;
+  piiRegexWorker: PiiRegexWorkerService;
   logger: Pick<Logger, 'error'>;
 }): WorkflowAnonymizationOptions | undefined => {
   if (!enabled) {
@@ -116,7 +119,7 @@ export const resolveWorkflowAnonymizationOptions = ({
     );
     return undefined;
   }
-  return { provider, failureMode, preLLMTimeoutMs, encryptionKey };
+  return { provider, failureMode, preLLMTimeoutMs, encryptionKey, piiRegexWorker };
 };
 
 export class InferencePlugin
@@ -131,6 +134,7 @@ export class InferencePlugin
   private logger: Logger;
   private config: InferenceConfig;
   private regexWorker?: RegexWorkerService;
+  private piiRegexWorker?: PiiRegexWorkerService;
   private endpointIdCache: InferenceEndpointIdCache;
   private tokenUsageLogger: TokenUsageLogger;
   private workflowAnonymizationProvider?: WorkflowAnonymizationProvider;
@@ -201,35 +205,28 @@ export class InferencePlugin
       );
     }
 
-    resolveWorkflowAnonymizationOptions({
-      enabled: this.config.anonymization.workflowDriven,
-      failureMode: this.config.anonymization.failureMode,
-      preLLMTimeoutMs: this.config.anonymization.preLLMTimeoutMs,
-      encryptionKey: this.config.anonymization.encryptionKey,
-      provider: this.workflowAnonymizationProvider,
-      logger: this.logger,
-    });
-
-    const workerConfig = this.config.workers.anonymization;
-    if (
-      this.config.anonymization.workflowDriven &&
-      workerConfig.workflowDrivenMinThreads > workerConfig.maxThreads
-    ) {
-      this.logger.warn(
-        `xpack.inference.workers.anonymization.workflowDrivenMinThreads ` +
-          `(${workerConfig.workflowDrivenMinThreads}) exceeds maxThreads ` +
-          `(${workerConfig.maxThreads}); clamping to maxThreads.`
-      );
-    }
-    const effectiveMinThreads = this.config.anonymization.workflowDriven
-      ? Math.min(workerConfig.workflowDrivenMinThreads, workerConfig.maxThreads)
-      : workerConfig.minThreads;
-    const effectiveWorkerConfig = { ...workerConfig, minThreads: effectiveMinThreads };
-
     this.regexWorker = new RegexWorkerService(
-      effectiveWorkerConfig,
+      this.config.workers.anonymization,
       this.logger.get('regex_worker')
     );
+    if (this.config.anonymization.workflowDriven) {
+      this.piiRegexWorker = new PiiRegexWorkerService(
+        this.config.workers.workflowAnonymization,
+        this.logger.get('pii_regex_worker')
+      );
+    }
+
+    const workflowAnonymization = this.piiRegexWorker
+      ? resolveWorkflowAnonymizationOptions({
+          enabled: this.config.anonymization.workflowDriven,
+          failureMode: this.config.anonymization.failureMode,
+          preLLMTimeoutMs: this.config.anonymization.preLLMTimeoutMs,
+          encryptionKey: this.config.anonymization.encryptionKey,
+          provider: this.workflowAnonymizationProvider,
+          piiRegexWorker: this.piiRegexWorker,
+          logger: this.logger,
+        })
+      : undefined;
 
     const createAnonymizationRulesPromise = async (request: KibanaRequest) => {
       const namespace =
@@ -362,6 +359,7 @@ export class InferencePlugin
           esClient: core.elasticsearch.client.asScoped(options.request).asCurrentUser,
           endpointIdCache: this.endpointIdCache,
           tokenUsageLogger: this.tokenUsageLogger,
+          workflowAnonymization,
           isTokenUsageTrackingEnabled: createTokenUsageTrackingEnabledCheck(options.request),
           isDefaultConnectorOnly: createDefaultConnectorOnlyCheck(options.request),
           getDefaultConnectorId: createDefaultConnectorIdGetter(options.request),
@@ -382,6 +380,7 @@ export class InferencePlugin
           endpointIdCache: this.endpointIdCache,
           logger: this.logger,
           tokenUsageLogger: this.tokenUsageLogger,
+          workflowAnonymization,
           isTokenUsageTrackingEnabled: createTokenUsageTrackingEnabledCheck(options.request),
           isDefaultConnectorOnly: createDefaultConnectorOnlyCheck(options.request),
           getDefaultConnectorId: createDefaultConnectorIdGetter(options.request),
@@ -455,5 +454,6 @@ export class InferencePlugin
 
   async stop() {
     await this.regexWorker?.stop();
+    await this.piiRegexWorker?.stop();
   }
 }
