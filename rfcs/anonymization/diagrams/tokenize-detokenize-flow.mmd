@@ -1,0 +1,21 @@
+flowchart TD
+    Start([History real values<br/>+ new user message real values])
+    Start --> TOut[transform-out:<br/>tokenize using forward map]
+    TOut --> Invoke[chatModel.bindTools.invoke<br/>tokenized messages]
+    Invoke --> LLM[(LLM)]
+    LLM --> Stream[tokens in response stream]
+    Stream --> TIn[transform-in:<br/>detokenize chunks before emission]
+    TIn --> Emit[chat event stream<br/>messageChunk, etc.<br/>real values to client]
+    TIn --> Storage[(storage<br/>real values)]
+
+    classDef startNode fill:#dcfce7,stroke:#166534,color:#000
+    classDef transformNode fill:#dbeafe,stroke:#1e40af,color:#000
+    classDef llmNode fill:#f3e8ff,stroke:#6b21a8,color:#000
+    classDef streamNode fill:#fef3c7,stroke:#a16207,color:#000
+    classDef sinkNode fill:#dcfce7,stroke:#166534,color:#000
+
+    class Start startNode
+    class TOut,TIn transformNode
+    class LLM,Invoke llmNode
+    class Stream streamNode
+    class Emit,Storage sinkNode
