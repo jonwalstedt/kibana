@@ -1,0 +1,22 @@
+flowchart TD
+    Hook[beforeAgent hook]
+    Hook -->|1| AB[AB invokes anonymization workflow<br/>ai.pii step<br/>forward / inverse / toolDeanonymization]
+    AB -->|2| RC[(Stored on<br/>RunContext.anonymization)]
+
+    RC --> TOut[transform-out<br/>every LLM call,<br/>tokenize messages]
+    RC --> BTC[beforeToolCall<br/>allowlisted tools<br/>see originals]
+    RC --> ATC[afterToolCall<br/>re-anonymize tool<br/>results for LLM]
+    RC --> TIn[transform-in<br/>text/reasoning chunks<br/>real values to<br/>client/storage]
+    RC --> End([round ends<br/>RunContext GC'd<br/>map gone])
+
+    classDef hookNode fill:#fef3c7,stroke:#a16207,color:#000
+    classDef workflowNode fill:#f3e8ff,stroke:#6b21a8,color:#000
+    classDef contextNode fill:#dcfce7,stroke:#166534,color:#000
+    classDef transformNode fill:#dbeafe,stroke:#1e40af,color:#000
+    classDef endNode fill:#e5e7eb,stroke:#374151,color:#000
+
+    class Hook,BTC,ATC hookNode
+    class AB workflowNode
+    class RC contextNode
+    class TOut,TIn transformNode
+    class End endNode
