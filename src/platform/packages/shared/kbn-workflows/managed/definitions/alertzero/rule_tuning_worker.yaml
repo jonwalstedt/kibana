@@ -225,8 +225,9 @@ steps:
                 kibana.alert.rule.uuid: "${{ steps.resolve_active_rules.output.rule_uuids | default: consts.no_rows }}"
       query: |-
         FROM .alerts-security.alerts-{{ workflow.spaceId }} METADATA _id
-        | EVAL is_fp = `kibana.alert.workflow_status` == "closed"
-            AND `kibana.alert.workflow_reason` == "false_positive"
+        | EVAL is_fp = (`kibana.alert.workflow_status` == "closed"
+            AND `kibana.alert.workflow_reason` == "false_positive")
+            OR MV_CONTAINS(`kibana.alert.workflow_tags`, "az:model_fp")
         | INLINE STATS reviewed_watermark = MAX(@timestamp)
             WHERE MV_CONTAINS(`kibana.alert.workflow_tags`, "{{ consts.reviewed_tag }}"),
             latest_revision = MAX(`kibana.alert.rule.revision`)
