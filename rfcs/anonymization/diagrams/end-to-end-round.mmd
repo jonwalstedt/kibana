@@ -1,0 +1,44 @@
+flowchart TD
+    Start([User message arrives<br/>real PII e.g. 'email john@acme.com<br/>about the breach'])
+    Start --> BA[beforeAgent hook fires<br/>existing surface]
+
+    BA --> Exec[AB invokes anonymization workflow<br/>executeWorkflow waitForCompletion: true<br/>see run_before_agent_workflows.ts]
+    Exec --> AiPii[ai.pii step<br/>forward / inverse / entities /<br/>toolDeanonymization]
+    AiPii --> Store[(AB stores<br/>RunContext.anonymization<br/>nextInput stays real values<br/>— transform at LLM boundary)]
+
+    Store --> Runner[Agent runner proceeds<br/>each LLM call is wrapped]
+
+    Runner --> TOut[transform-out:<br/>forward map applied to messages<br/>'email john@acme.com...' →<br/>'email EMAIL_a3f2c1d8... about...']
+    TOut --> Invoke[chatModel.bindTools.invoke tokenized<br/>langchain via InferenceChatModel]
+    Invoke --> Stream{stream events from<br/>inference plugin}
+
+    Stream -->|text / reasoning<br/>chunks| TIn[transform-in<br/>token → real]
+    TIn --> EmitText[emit messageChunk<br/>with real values]
+
+    Stream -->|tool-call chunks| EmitTok[emitted as-is<br/>tokenized]
+    EmitTok --> BTC[beforeToolCall fires<br/>existing]
+    BTC --> Policy{tool allowlisted?}
+    Policy -->|yes| Deanon[deanonymize params]
+    Policy -->|no| PassThru[pass tokens through]
+    Deanon --> ToolExec[tool executes]
+    PassThru --> ToolExec
+    ToolExec --> ATC[afterToolCall fires<br/>existing, reverse priority]
+    ATC --> ReAnon[re-anonymize results<br/>so next LLM call sees tokens]
+    ReAnon --> Runner
+
+    EmitText --> RC([roundComplete event — existing<br/>final message real-valued at client])
+    RC --> EndCtx[RunContext goes out of scope<br/>map GC'd<br/>storage holds real values<br/>the deanonymized stream]
+
+    classDef hookNode fill:#fef3c7,stroke:#a16207,color:#000
+    classDef transformNode fill:#dbeafe,stroke:#1e40af,color:#000
+    classDef storeNode fill:#dcfce7,stroke:#166534,color:#000
+    classDef llmNode fill:#f3e8ff,stroke:#6b21a8,color:#000
+    classDef toolNode fill:#fde68a,stroke:#92400e,color:#000
+    classDef endNode fill:#e5e7eb,stroke:#374151,color:#000
+
+    class BA,BTC,ATC hookNode
+    class TOut,TIn,Deanon,ReAnon transformNode
+    class Store,RC storeNode
+    class Invoke,Stream,AiPii,Exec llmNode
+    class ToolExec,PassThru toolNode
+    class EndCtx endNode
