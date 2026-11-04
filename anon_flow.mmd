@@ -1,0 +1,24 @@
+%%{init: {'theme': 'default', 'flowchart': {'curve': 'basis', 'rankSpacing': 100, 'nodeSpacing': 40}}}%%
+flowchart LR
+  classDef you fill:#fff3cd,stroke:#e8a020,color:#333,rx:8
+  classDef kibana fill:#d9edf7,stroke:#5bc0de,color:#333,rx:8
+  classDef model fill:#dff0d8,stroke:#5cb85c,color:#333,rx:8
+  classDef back fill:#f2dede,stroke:#d9534f,color:#333,rx:8
+  classDef group fill:transparent,stroke:transparent
+
+  subgraph left [" "]
+    U["You in Kibana\nType message and context in\nObservability AI Assistant"]:::you
+    D["Back to you\nDeanonymize for display /\nsaved history where applicable"]:::back
+  end
+
+  subgraph right [" "]
+    C["Elastic / Kibana — outbound\nApply anonymization rules you configured\nBuild request with placeholders\n+ short anonymization instructions"]:::kibana
+    L["Model provider\nLarge language model"]:::model
+  end
+
+  class left,right group
+
+  U -->|sends| C
+  C -->|anonymized request| L
+  L -->|response| D
+  D -->|rendered reply| U
