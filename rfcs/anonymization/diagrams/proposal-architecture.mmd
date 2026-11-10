@@ -1,0 +1,62 @@
+flowchart TD
+    YOU["You in Kibana\n \nType message / alert context\nin Agent Builder UI"]
+
+    OTHER["Other LLM consumers\n \nO11y AI Assistant\nSecurity AI Assistant\nAttack Discovery\n \nNot covered — each consumer\nmust wire its own anonymization"]
+
+    EXTSYS["External Systems\n \nAPIs not owned by Elastic"]
+
+    subgraph AB["Agent Builder — owns the anonymization hooks"]
+        direction TB
+        AGENT["Agent / chat round\n \n1. invokeHook(beforeChatRound) → guardrails\n2. invokeHook(beforeInference) → anonymize\n   holds tokenMap in local memory\n3. chatComplete(anonymizedMessages)\n4. invokeHook(afterInference, { tokenMap }) → restore\n5. Return de-anonymized response"]
+        TC["Tool calls\n \n• Elasticsearch (alerts, events, fields)\n• Trusted system / APIs\n• LLM calls (through Inference plugin)\n \nAll tool calls get unmasked values"]
+        AGENT -->|"Tool params"| TC
+        TC -->|"Tool call result — raw output → state → next prompt"| AGENT
+    end
+
+    subgraph WF["Workflow engine"]
+        WFDESC["invokeHook(triggerId, payload)\nResolves subscribers, runs sequentially\nai.pii / transform.pii_restore steps\nDefault workflow + admin custom rules"]
+        GUARD["agent-builder.beforeChatRound hook\n \nGuardrails: off-topic checks,\nPII detection (block mode),\ncustom policy violations\nBlocks chat round if check fails"]
+        ANON["agent-builder.beforeInference hook\n \nai.pii: detects PII, replaces with HMAC tokens\nReturns: { anonymizedMessage, tokenMap }"]
+        DEANON["agent-builder.afterInference hook\n \ntransform.pii_restore\nReceives tokenMap from caller memory\nRestores originals in LLM response"]
+    end
+
+    INF["Inference plugin\n \nchatComplete(messages)\n \nNo anonymization at this layer\nOther consumers call this unprotected"]
+
+    LLM["Large Language Model\n \nAnthropic, OpenAI, Bedrock, …\nSees only tokens — for AB sessions only"]
+
+    BACK["Back to you\n \nResponse de-anonymized\nReal values everywhere"]
+
+    YOU         -->|"message may contain PII"| AGENT
+    AGENT       -->|"invokeHook\n'agent-builder.beforeChatRound'"| GUARD
+    GUARD       -->|"passed or blocked"| AGENT
+    AGENT       -->|"invokeHook\n'agent-builder.beforeInference'"| ANON
+    ANON        -->|"{ anonymizedMessage, tokenMap }"| AGENT
+    AGENT       -->|"chatComplete(anonymizedMessages)\ntokenMap held in caller memory"| INF
+    INF         -->|"LLM request Anonymized"| LLM
+    LLM         -->|"LLM Response\nStill anonymized"| INF
+    INF         -->|"tokenized response"| AGENT
+    AGENT       -->|"invokeHook 'agent-builder.afterInference'\n{ response, tokenMap }"| DEANON
+    DEANON      -->|"de-anonymized response"| AGENT
+    AGENT       -->|"de-anonymized response"| BACK
+    BACK        -.->|"reads response"| YOU
+    TC          -->|"Tool params\n(unmasked — could leak PII)"| EXTSYS
+    EXTSYS      -->|"Response\n(unmasked — could leak PII)"| TC
+    OTHER       -.->|"calls chatComplete\nno anonymization applied"| INF
+
+    style YOU    fill:#fef3c7,stroke:#b45309,color:#000,font-size:14px
+    style AGENT  fill:#dbeafe,stroke:#1d4ed8,color:#000,font-size:14px
+    style TC     fill:#fed7aa,stroke:#c2410c,color:#000,font-size:14px
+    style WFDESC fill:#f5f3ff,stroke:#7e22ce,color:#374151,font-size:13px
+    style GUARD  fill:#fecdd3,stroke:#be123c,color:#000,font-size:14px
+    style ANON   fill:#bbf7d0,stroke:#15803d,color:#000,font-size:14px
+    style DEANON fill:#bbf7d0,stroke:#15803d,color:#000,font-size:14px
+    style INF    fill:#fde68a,stroke:#b45309,color:#000,font-size:14px
+    style LLM    fill:#f97316,stroke:#c2410c,color:#fff,font-size:14px
+    style EXTSYS fill:#f97316,stroke:#c2410c,color:#fff,font-size:14px
+    style BACK   fill:#fef3c7,stroke:#b45309,color:#000,font-size:14px
+    style OTHER  fill:#f3f4f6,stroke:#dc2626,color:#374151,font-size:14px
+
+    linkStyle 14 stroke:#6b7280,stroke-dasharray:5 5
+    linkStyle 15 stroke:#dc2626,stroke-dasharray:5 5
+    linkStyle 16 stroke:#dc2626,stroke-dasharray:5 5
+    linkStyle 17 stroke:#6b7280,stroke-dasharray:5 5
